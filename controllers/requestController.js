@@ -983,23 +983,64 @@ exports.allocateChemEquipGlass = asyncHandler(async (req, res) => {
   if (Array.isArray(glassware) && glassware.length > 0) {
     console.log('[allocateChemEquipGlass] Allocating glassware:', glassware);
     try {
+      const GlasswareLive = require('../models/GlasswareLive');
+      
       for (const g of glassware) {
+        const { experimentId, glasswareId, quantity } = g;
+        
+        // Find the glassware in GlasswareLive collection
+        const glasswareStock = await GlasswareLive.findById(glasswareId);
+        if (!glasswareStock) {
+          console.log(`[allocateChemEquipGlass] Glassware not found in live stock: ${glasswareId}`);
+          errors.push({ type: 'glassware', error: `Glassware not found in stock: ${glasswareId}` });
+          continue;
+        }
+
+        // Check if sufficient quantity is available
+        if (glasswareStock.quantity < quantity) {
+          console.log(`[allocateChemEquipGlass] Insufficient glassware stock for ${glasswareStock.name}: available ${glasswareStock.quantity}, requested ${quantity}`);
+          errors.push({ 
+            type: 'glassware', 
+            error: `Insufficient stock for ${glasswareStock.name}: available ${glasswareStock.quantity}, requested ${quantity}` 
+          });
+          continue;
+        }
+
+        // Deduct the quantity from GlasswareLive
+        glasswareStock.quantity -= quantity;
+        await glasswareStock.save();
+        console.log(`[allocateChemEquipGlass] Deducted ${quantity} from ${glasswareStock.name}, remaining: ${glasswareStock.quantity}`);
+
         // Find the experiment by either subdocument _id or experimentId
         const experiment = request.experiments.find(exp =>
-          exp._id.equals(g.experimentId) || (exp.experimentId && exp.experimentId.equals(g.experimentId))
+          exp._id.equals(experimentId) || (exp.experimentId && exp.experimentId.equals(experimentId))
         );
-        if (!experiment) continue;
-        const glass = (experiment.glassware || []).find(gl => gl.glasswareId.equals(g.glasswareId));
-        if (!glass) continue;
+        if (!experiment) {
+          console.log(`[allocateChemEquipGlass] Experiment not found: ${experimentId}`);
+          continue;
+        }
+
+        // Find the glassware item in the experiment
+        const glass = (experiment.glassware || []).find(gl => gl.glasswareId.equals(glasswareId));
+        if (!glass) {
+          console.log(`[allocateChemEquipGlass] Glassware item not found in experiment: ${glasswareId}`);
+          continue;
+        }
+
+        // Mark as allocated and update allocation history
         glass.isAllocated = true;
+        glass.allocatedQuantity = quantity;
         glass.allocationHistory = glass.allocationHistory || [];
         glass.allocationHistory.push({
           date: new Date(),
-          quantity: g.quantity,
+          quantity: quantity,
           allocatedBy: adminId
         });
+        
+        console.log(`[allocateChemEquipGlass] Successfully allocated ${quantity} of ${glasswareStock.name}`);
       }
     } catch (err) {
+      console.error('[allocateChemEquipGlass] Error in glassware allocation:', err);
       errors.push({ type: 'glassware', error: err.message });
     }
   }

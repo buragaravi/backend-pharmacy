@@ -365,12 +365,21 @@ exports.allocateGlasswareToFacultyInternal = async function({ allocations, fromL
 // Get central/lab stock
 const getGlasswareStock = asyncHandler(async (req, res) => {
   const { labId } = req.query;
-  const filter = labId ? { labId } : 'central-lab';
-  if (!filter) {
-    return res.status(400).json({ message: 'Lab ID is required' });
+  
+  // If no labId is provided, get stock from all labs
+  // If labId is provided, filter by that specific lab
+  const filter = labId ? { labId } : {};
+  
+  try {
+    const stock = await GlasswareLive.find(filter)
+      .populate('productId', 'name unit variant')
+      .sort({ name: 1, labId: 1 });
+    
+    res.status(200).json(stock);
+  } catch (error) {
+    console.error('Error fetching glassware stock:', error);
+    res.status(500).json({ message: 'Failed to fetch glassware stock' });
   }
-  const stock = await GlasswareLive.find(filter);
-  res.status(200).json(stock);
 });
 
 // Get available glassware in central lab (for allocation forms)

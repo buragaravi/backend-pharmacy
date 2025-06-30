@@ -54,12 +54,23 @@ const getProductsByCategory = asyncHandler(async (req, res) => {
 const createProduct = asyncHandler(async (req, res) => {
   const { name, unit, thresholdValue, category, subCategory, variant } = req.body;
 
-  // Check if product already exists
-  const existingProduct = await Product.findOne({ name });
+  // Check if product already exists with same name, category, and category-specific identifier
+  let duplicateCheckQuery = { 
+    name,
+    category: category.toLowerCase()
+  };
+  
+  if (category === 'chemical') {
+    duplicateCheckQuery.unit = unit || '';
+  } else {
+    duplicateCheckQuery.variant = variant || '';
+  }
+  
+  const existingProduct = await Product.findOne(duplicateCheckQuery);
   if (existingProduct) {
     return res.status(400).json({
       success: false,
-      message: 'Product with this name already exists'
+      message: `Product with this name, category, and ${category === 'chemical' ? 'unit' : 'variant'} already exists`
     });
   }
 
@@ -125,18 +136,7 @@ const createBulkProducts = asyncHandler(async (req, res) => {
         continue;
       }
 
-      // Check if product already exists
-      const existingProduct = await Product.findOne({ name: productData.name.trim() });
-      if (existingProduct) {
-        results.skipped.push({
-          index: i,
-          product: productData,
-          reason: 'Product already exists'
-        });
-        continue;
-      }
-
-      // Validate and set category
+      // Validate and set category first
       let category = 'chemical'; // default
       if (productData.category) {
         const categoryLower = productData.category.toLowerCase();
@@ -161,6 +161,29 @@ const createBulkProducts = asyncHandler(async (req, res) => {
           index: i,
           product: productData,
           error: 'Variant is required for non-chemical products'
+        });
+        continue;
+      }
+
+      // Check if product already exists with same name, category, and category-specific identifier
+      let duplicateCheckQuery = { 
+        name: productData.name.trim(),
+        category: category
+      };
+      
+      // Add category-specific fields to duplicate check
+      if (category === 'chemical') {
+        duplicateCheckQuery.unit = productData.unit ? productData.unit.trim() : '';
+      } else {
+        duplicateCheckQuery.variant = productData.variant ? productData.variant.trim() : '';
+      }
+      
+      const existingProduct = await Product.findOne(duplicateCheckQuery);
+      if (existingProduct) {
+        results.skipped.push({
+          index: i,
+          product: productData,
+          reason: `Product already exists with same name, category, and ${category === 'chemical' ? 'unit' : 'variant'}`
         });
         continue;
       }
@@ -215,15 +238,26 @@ const updateProduct = asyncHandler(async (req, res) => {
     });
   }
 
-  // Check if name is being changed to one that already exists
-  if (name && name !== product.name) {
-    const existingProduct = await Product.findOne({ name });
-    if (existingProduct) {
-      return res.status(400).json({
-        success: false,
-        message: 'Another product with this name already exists'
-      });
-    }
+  // Check if name/category/unit/variant combination is being changed to one that already exists
+  const productCategory = category ? category.toLowerCase() : product.category;
+  let duplicateCheckQuery = { 
+    name: name || product.name,
+    category: productCategory,
+    _id: { $ne: id } // Exclude current product from check
+  };
+  
+  if (productCategory === 'chemical') {
+    duplicateCheckQuery.unit = (unit !== undefined ? unit : product.unit) || '';
+  } else {
+    duplicateCheckQuery.variant = (variant !== undefined ? variant : product.variant) || '';
+  }
+  
+  const existingProduct = await Product.findOne(duplicateCheckQuery);
+  if (existingProduct) {
+    return res.status(400).json({
+      success: false,
+      message: `Another product with this name, category, and ${productCategory === 'chemical' ? 'unit' : 'variant'} already exists`
+    });
   }
 
   // Validation: unit required for chemical, variant required for others

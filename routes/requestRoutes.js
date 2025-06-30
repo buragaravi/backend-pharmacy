@@ -39,7 +39,7 @@ router.get('/faculty',
 
 router.get('/lab/:labId', 
   authenticate, 
-  authorizeRole(['lab_assistant', 'central_lab_admin']), 
+  authorizeRole(['lab_assistant', 'central_lab_admin','admin']), 
   requestController.getRequestsByLabId
 );
 
@@ -47,8 +47,6 @@ router.get('/:id',
   authenticate, 
   requestController.getRequestById
 );
-
-
 
 router.delete('/:id', 
   authenticate, 
@@ -95,6 +93,18 @@ router.post('/fulfill-remaining',
 router.put('/:id/return-unified', 
   authenticate, 
   requestReturnController.returnChemEquipGlass
+);
+
+router.get('/stats', authenticate, authorizeRole(['admin', 'central_lab_admin']), requestController.getRequestStats);
+router.get('/pending-overview', authenticate, authorizeRole(['admin', 'central_lab_admin']), requestController.getPendingOverviewRequests);
+router.get('/all', authenticate, authorizeRole(['admin', 'central_lab_admin']), requestController.getAllRequestsForDashboard);
+
+// Route to get all unapproved requests
+router.get(
+  '/unapproved',
+  authenticate,
+  authorizeRole(['admin', 'central_lab_admin']),
+  requestController.getUnapprovedRequests
 );
 
 module.exports = router;

@@ -1,5 +1,9 @@
 const Product = require('../models/Product');
 const asyncHandler = require('express-async-handler');
+const ChemicalLive = require('../models/ChemicalLive');
+const EquipmentLive = require('../models/EquipmentLive');
+const GlasswareLive = require('../models/GlasswareLive');
+const OtherProductLive = require('../models/OtherProductLive');
 
 // @desc    Get all products
 // @route   GET /api/products
@@ -88,6 +92,113 @@ const createProduct = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Create multiple products (bulk upload)
+// @route   POST /api/products/bulk
+// @access  Private
+const createBulkProducts = asyncHandler(async (req, res) => {
+  const { products } = req.body;
+
+  if (!Array.isArray(products) || products.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Products array is required and must not be empty'
+    });
+  }
+
+  const validCategories = ['chemical', 'glassware', 'equipment', 'others'];
+  const results = {
+    created: [],
+    errors: [],
+    skipped: []
+  };
+
+  for (let i = 0; i < products.length; i++) {
+    const productData = products[i];
+    
+    try {
+      // Validate required fields
+      if (!productData.name || productData.name.trim() === '') {
+        results.errors.push({
+          index: i,
+          error: 'Product name is required'
+        });
+        continue;
+      }
+
+      // Check if product already exists
+      const existingProduct = await Product.findOne({ name: productData.name.trim() });
+      if (existingProduct) {
+        results.skipped.push({
+          index: i,
+          product: productData,
+          reason: 'Product already exists'
+        });
+        continue;
+      }
+
+      // Validate and set category
+      let category = 'chemical'; // default
+      if (productData.category) {
+        const categoryLower = productData.category.toLowerCase();
+        if (validCategories.includes(categoryLower)) {
+          category = categoryLower;
+        }
+      }
+
+      // Validate unit for chemical products
+      if (category === 'chemical' && (!productData.unit || productData.unit.trim() === '')) {
+        results.errors.push({
+          index: i,
+          product: productData,
+          error: 'Unit is required for chemical products'
+        });
+        continue;
+      }
+
+      // Validate variant for non-chemical products
+      if (category !== 'chemical' && (!productData.variant || productData.variant.trim() === '')) {
+        results.errors.push({
+          index: i,
+          product: productData,
+          error: 'Variant is required for non-chemical products'
+        });
+        continue;
+      }
+
+      // Set threshold value (default to 0 if not provided)
+      const thresholdValue = productData.thresholdValue !== undefined ? Number(productData.thresholdValue) : 0;
+
+      // Create the product
+      const product = await Product.create({
+        name: productData.name.trim(),
+        unit: category === 'chemical' ? productData.unit.trim() : '',
+        thresholdValue,
+        category,
+        subCategory: productData.subCategory || '',
+        variant: category !== 'chemical' ? productData.variant.trim() : ''
+      });
+
+      results.created.push({
+        index: i,
+        product: product
+      });
+
+    } catch (error) {
+      results.errors.push({
+        index: i,
+        product: productData,
+        error: error.message
+      });
+    }
+  }
+
+  res.status(200).json({
+    success: true,
+    message: `Bulk upload completed. Created: ${results.created.length}, Errors: ${results.errors.length}, Skipped: ${results.skipped.length}`,
+    results
+  });
+});
+
 // @desc    Update a product
 // @route   PUT /api/products/:id
 // @access  Private (add your auth middleware as needed)
@@ -165,6 +276,7 @@ const deleteProduct = asyncHandler(async (req, res) => {
     message: 'Product deleted successfully'
   });
 });
+
 // In controller
 const searchProducts = asyncHandler(async (req, res) => {
   const { q } = req.query;
@@ -174,11 +286,27 @@ const searchProducts = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, data: products });
 });
 
+// @desc    Get product stats (counts by category)
+// @route   GET /api/products/stats
+// @access  Public
+const getProductStats = asyncHandler(async (req, res) => {
+  const [chemical, equipment, glassware, others] = await Promise.all([
+    ChemicalLive.countDocuments(),
+    EquipmentLive.countDocuments(),
+    GlasswareLive.countDocuments(),
+    OtherProductLive.countDocuments()
+  ]);
+  const total = chemical + equipment + glassware + others;
+  res.status(200).json({ total, chemical, equipment, glassware, others });
+});
+
 module.exports = {
   getAllProducts,
   getProductsByCategory,
   createProduct,
+  createBulkProducts,
   updateProduct,
   deleteProduct,
-  searchProducts
+  searchProducts,
+  getProductStats
 };

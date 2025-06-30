@@ -494,6 +494,27 @@ exports.getAllRequests = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Get all unapproved requests
+// @route   GET /api/requests/unapproved
+// @access  Private (Admin)
+exports.getUnapprovedRequests = asyncHandler(async (req, res) => {
+  try {
+    const requests = await Request.find({ status: 'pending' })
+      .populate('facultyId', 'name email')
+      .populate('labId', 'name')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: requests.length,
+      data: requests,
+    });
+  } catch (err) {
+    console.error('Error fetching unapproved requests:', err);
+    res.status(500).json({ msg: 'Server error fetching unapproved requests' });
+  }
+});
+
 // @desc    Get requests by faculty ID
 // @route   GET /api/requests/faculty
 // @access  Private (Faculty)
@@ -1272,3 +1293,45 @@ function filterExperimentsForResponse(experiments) {
     return filtered;
   });
 }
+
+// @desc    Get request stats (counts by status)
+// @route   GET /api/requests/stats
+// @access  Private (admin, central_lab_admin)
+exports.getRequestStats = asyncHandler(async (req, res) => {
+  const total = await Request.countDocuments();
+  const pending = await Request.countDocuments({ status: 'pending' });
+  const partially_fulfilled = await Request.countDocuments({ status: 'partially_fulfilled' });
+  const fulfilled = await Request.countDocuments({ status: 'fulfilled' });
+  const rejected = await Request.countDocuments({ status: 'rejected' });
+  const active = pending + partially_fulfilled;
+  res.status(200).json({ total, active, pending, partially_fulfilled, fulfilled, rejected });
+});
+
+// @desc    Get all pending and partially fulfilled requests (all labs)
+// @route   GET /api/requests/pending-overview
+// @access  Private (admin, central_lab_admin)
+exports.getPendingOverviewRequests = asyncHandler(async (req, res) => {
+  const requests = await Request.find({ status: { $in: ['pending', 'partially_fulfilled'] } })
+    .populate('facultyId', 'name email')
+    .populate('labId', 'name')
+    .sort({ createdAt: -1 });
+  res.status(200).json({ count: requests.length, data: requests });
+});
+
+// @desc    Get all requests for dashboard feed
+// @route   GET /api/requests/all
+// @access  Private (Admin/Lab Assistant)
+exports.getAllRequestsForDashboard = asyncHandler(async (req, res) => {
+  try {
+    const requests = await Request.find()
+      .populate('facultyId', 'name email')
+      .populate('labId', 'name')
+      .sort({ createdAt: -1 });
+    res.status(200).json({ count: requests.length, data: requests });
+  } catch (err) {
+    console.error('Error fetching all requests for dashboard:', err);
+    res.status(500).json({ msg: 'Server error fetching requests' });
+  }
+});
+
+module.exports = exports;

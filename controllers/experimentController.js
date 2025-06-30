@@ -12,7 +12,7 @@ exports.addExperiment = asyncHandler(async (req, res) => {
     subject,
     description,
     defaultChemicals,
-    createdBy: req.userId
+    createdBy: req.userId ||req.user.id || req.user._id ||'admin'
   });
 
   res.status(201).json({
@@ -31,7 +31,7 @@ exports.bulkAddExperiments = asyncHandler(async (req, res) => {
 
   const experimentsWithCreator = experiments.map(exp => ({
     ...exp,
-    createdBy: req.userId
+    createdBy: req.userId ||req.user.id || req.user._id ||'admin'
   }));
 
   const savedExperiments = await Experiment.insertMany(experimentsWithCreator);
@@ -96,7 +96,7 @@ exports.getExperimentDetails = asyncHandler(async (req, res) => {
 
   // Update experiment with new averages
   experiment.averageUsage = averageUsage;
-  experiment.updatedBy = req.userId;
+  experiment.updatedBy = req.userId ||req.user.id || req.user._id ||'admin';
   await experiment.save();
 
   res.status(200).json({
@@ -125,7 +125,7 @@ exports.updateExperiment = asyncHandler(async (req, res) => {
     }
   });
 
-  experiment.updatedBy = req.userId;
+  experiment.updatedBy = req.userId ||req.user.id || req.user._id ||'admin';
   await experiment.save();
 
   res.status(200).json({
@@ -188,7 +188,7 @@ exports.createExperiment = asyncHandler(async (req, res) => {
     subject,
     description,
     defaultChemicals,
-    createdBy: req.user.id
+    createdBy: req.userId ||req.user.id || req.user._id ||'admin' 
   });
 
   res.status(201).json({

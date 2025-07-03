@@ -52,6 +52,7 @@ app.use('/api/vouchers', voucherRoutes);
 app.use('/api/indents', require('./routes/indentRoutes'));
 app.use('/api/equipment', require('./routes/equipmentRoutes'));
 app.use('/api/glassware', require('./routes/glasswareRoutes'));
+app.use('/api/glassware-transactions', require('./routes/glasswareTransactionRoutes'));
 app.use('/api/others', require('./routes/otherProductRoutes'));
 
 

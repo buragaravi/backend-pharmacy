@@ -1,9 +1,11 @@
 const GlasswareLive = require('../models/GlasswareLive');
 const Product = require('../models/Product');
 const Transaction = require('../models/Transaction');
+const GlasswareTransaction = require('../models/GlasswareTransaction');
 const asyncHandler = require('express-async-handler');
 const mongoose = require('mongoose');
 const QRCode = require('qrcode');
+const { logGlasswareTransaction } = require('../utils/glasswareTransactionLogger');
 
 
 // Helper: generate glassware batch ID following same pattern as chemicals
@@ -74,6 +76,20 @@ const addGlasswareToCentral = asyncHandler(async (req, res) => {
         qrCodeImage
       });
 
+      // Log glassware transaction for entry
+      await GlasswareTransaction.create({
+        glasswareLiveId: newItem._id,
+        glasswareName: newItem.name,
+        transactionType: 'entry',
+        quantity: quantity,
+        variant: variant,
+        toLabId: 'central-lab',
+        condition: 'good',
+        batchId,
+        notes: `Initial entry to central lab`,
+        createdBy: req.userId
+      });
+
       savedItems.push(newItem);
       qrCodes.push({
         productId: newItem.productId,
@@ -86,6 +102,21 @@ const addGlasswareToCentral = asyncHandler(async (req, res) => {
     // 3. If matching variant exists, just update quantity
     existingItem.quantity += Number(quantity);
     await existingItem.save();
+
+    // Log glassware transaction for additional entry
+    await GlasswareTransaction.create({
+      glasswareLiveId: existingItem._id,
+      glasswareName: existingItem.name,
+      transactionType: 'entry',
+      quantity: Number(quantity),
+      variant: existingItem.variant,
+      toLabId: 'central-lab',
+      condition: 'good',
+      batchId,
+      notes: `Additional stock entry to central lab`,
+      createdBy: req.userId
+    });
+
     savedItems.push(existingItem);
   }
 
@@ -247,6 +278,21 @@ const allocateGlasswareToLab = asyncHandler(async (req, res) => {
             timestamp: new Date()
           });
 
+          // Also create glassware-specific transaction record
+          await GlasswareTransaction.create({
+            glasswareLiveId: central._id,
+            glasswareName: central.name,
+            transactionType: 'allocation',
+            quantity: allocQty,
+            variant: central.variant || central.unit,
+            fromLabId: 'central-lab',
+            toLabId,
+            condition: 'good',
+            batchId: central.batchId,
+            notes: `Allocated from central lab to ${toLabId}`,
+            createdBy: req.user?._id || req.userId || new mongoose.Types.ObjectId('68272133e26ef88fb399cd75')
+          });
+
           totalAllocated += allocQty;
           remainingQty -= allocQty;
           console.log(`Allocated ${allocQty}, remaining to allocate: ${remainingQty}`);
@@ -329,6 +375,21 @@ const allocateGlasswareToFaculty = asyncHandler(async (req, res) => {
   }
   labStock.quantity -= quantity;
   await labStock.save();
+
+  // Log glassware transaction for faculty allocation
+  await GlasswareTransaction.create({
+    glasswareLiveId: labStock._id,
+    glasswareName: labStock.name,
+    transactionType: 'issue',
+    quantity: quantity,
+    variant: variant,
+    fromLabId: fromLabId,
+    toLabId: 'faculty',
+    condition: 'good',
+    notes: `Issued to faculty from ${fromLabId}`,
+    createdBy: req.userId
+  });
+
   res.status(200).json({ message: 'Glassware allocated to faculty' });
 });
 
@@ -354,6 +415,20 @@ exports.allocateGlasswareToFacultyInternal = async function({ allocations, fromL
         unit: labStock.unit,
         createdBy: adminId,
         timestamp: new Date(),
+      });
+
+      // Also create glassware-specific transaction record
+      await GlasswareTransaction.create({
+        glasswareLiveId: labStock._id,
+        glasswareName: labStock.name,
+        transactionType: 'transfer',
+        quantity: quantity,
+        variant: labStock.variant,
+        fromLabId,
+        toLabId: 'faculty',
+        condition: 'good',
+        notes: `Internal transfer to faculty from ${fromLabId}`,
+        createdBy: adminId
       });
     }
     return { success: true };
@@ -453,12 +528,238 @@ const scanGlasswareQRCode = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Create a glassware transaction
+// @route   POST /api/glassware/transaction
+// @access  Private
+const createGlasswareTransaction = asyncHandler(async (req, res) => {
+  const { 
+    glasswareLiveId, 
+    transactionType, 
+    quantity, 
+    fromLabId, 
+    toLabId, 
+    reason, 
+    condition, 
+    notes 
+  } = req.body;
+
+  if (!glasswareLiveId || !transactionType || !quantity) {
+    return res.status(400).json({
+      success: false,
+      message: 'Missing required fields: glasswareLiveId, transactionType, quantity'
+    });
+  }
+
+  try {
+    // Find the glassware
+    const glassware = await GlasswareLive.findById(glasswareLiveId);
+    if (!glassware) {
+      return res.status(404).json({
+        success: false,
+        message: 'Glassware not found'
+      });
+    }
+
+    // Validate quantity for outgoing transactions
+    if (['issue', 'allocation', 'transfer', 'broken'].includes(transactionType)) {
+      if (glassware.quantity < quantity) {
+        return res.status(400).json({
+          success: false,
+          message: 'Insufficient quantity available'
+        });
+      }
+    }
+
+    // Create the transaction
+    const transaction = await GlasswareTransaction.create({
+      glasswareLiveId,
+      glasswareName: glassware.name,
+      transactionType,
+      quantity,
+      variant: glassware.variant,
+      fromLabId,
+      toLabId,
+      reason,
+      condition: condition || 'good',
+      batchId: glassware.batchId,
+      notes,
+      createdBy: req.userId
+    });
+
+    // Update glassware quantity based on transaction type
+    let quantityChange = 0;
+    switch (transactionType) {
+      case 'entry':
+      case 'return':
+        quantityChange = quantity;
+        break;
+      case 'issue':
+      case 'allocation':
+      case 'transfer':
+      case 'broken':
+        quantityChange = -quantity;
+        break;
+    }
+
+    glassware.quantity += quantityChange;
+    if (condition) {
+      glassware.condition = condition;
+    }
+    await glassware.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Glassware transaction created successfully',
+      data: transaction
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create transaction',
+      error: error.message
+    });
+  }
+});
+
+// @desc    Get glassware transaction history
+// @route   GET /api/glassware/transactions/:glasswareId
+// @access  Private
+const getGlasswareTransactionHistory = asyncHandler(async (req, res) => {
+  try {
+    const { glasswareId } = req.params;
+    
+    const transactions = await GlasswareTransaction.find({ glasswareLiveId: glasswareId })
+      .populate('createdBy', 'name email')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: transactions.length,
+      data: transactions
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch transaction history',
+      error: error.message
+    });
+  }
+});
+
+// @desc    Get all glassware transactions for a lab
+// @route   GET /api/glassware/transactions/lab/:labId
+// @access  Private
+const getLabGlasswareTransactions = asyncHandler(async (req, res) => {
+  try {
+    const { labId } = req.params;
+    const { page = 1, limit = 50, transactionType } = req.query;
+
+    const filter = {
+      $or: [
+        { fromLabId: labId },
+        { toLabId: labId }
+      ]
+    };
+
+    if (transactionType) {
+      filter.transactionType = transactionType;
+    }
+
+    const transactions = await GlasswareTransaction.find(filter)
+      .populate('glasswareLiveId', 'name variant')
+      .populate('createdBy', 'name email')
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const total = await GlasswareTransaction.countDocuments(filter);
+
+    res.status(200).json({
+      success: true,
+      count: transactions.length,
+      total,
+      page: parseInt(page),
+      pages: Math.ceil(total / limit),
+      data: transactions
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch lab transactions',
+      error: error.message
+    });
+  }
+});
+
+// @desc    Mark glassware as broken
+// @route   POST /api/glassware/:id/broken
+// @access  Private
+const markGlasswareAsBroken = asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { quantity, reason, notes } = req.body;
+
+    const glassware = await GlasswareLive.findById(id);
+    if (!glassware) {
+      return res.status(404).json({
+        success: false,
+        message: 'Glassware not found'
+      });
+    }
+
+    if (glassware.quantity < quantity) {
+      return res.status(400).json({
+        success: false,
+        message: 'Insufficient quantity to mark as broken'
+      });
+    }
+
+    // Create broken transaction
+    await GlasswareTransaction.create({
+      glasswareLiveId: id,
+      glasswareName: glassware.name,
+      transactionType: 'broken',
+      quantity,
+      variant: glassware.variant,
+      fromLabId: glassware.labId,
+      reason,
+      condition: 'broken',
+      previousCondition: glassware.condition || 'good',
+      notes,
+      createdBy: req.userId
+    });
+
+    // Update glassware quantity
+    glassware.quantity -= quantity;
+    await glassware.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Glassware marked as broken successfully'
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to mark glassware as broken',
+      error: error.message
+    });
+  }
+});
+
 module.exports = {
   addGlasswareToCentral,
   allocateGlasswareToLab,
   allocateGlasswareToFaculty,
   getGlasswareStock,
   getCentralAvailableGlassware,
-  scanGlasswareQRCode, // <-- export new endpoint
-  allocateGlasswareToFacultyInternal: exports.allocateGlasswareToFacultyInternal // <-- export internal function
+  scanGlasswareQRCode,
+  createGlasswareTransaction,
+  getGlasswareTransactionHistory,
+  getLabGlasswareTransactions,
+  markGlasswareAsBroken,
+  allocateGlasswareToFacultyInternal: exports.allocateGlasswareToFacultyInternal
 };

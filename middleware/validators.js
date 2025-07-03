@@ -112,6 +112,47 @@ const validatePasswordReset = [
   validate
 ];
 
+// Glassware transaction validation
+const validateGlasswareTransaction = [
+  body('glasswareLiveId').isString().notEmpty().withMessage('Glassware Live ID is required'),
+  body('transactionType').isIn(['entry', 'issue', 'allocation', 'transfer', 'return', 'broken', 'maintenance']).withMessage('Invalid transaction type'),
+  body('quantity').isFloat({ min: 0.1 }).withMessage('Quantity must be greater than 0'),
+  body('variant').isString().notEmpty().withMessage('Variant is required'),
+  body('fromLabId').optional().isIn(['LAB01', 'LAB02', 'LAB03', 'LAB04', 'LAB05', 'LAB06', 'LAB07', 'LAB08', 'central-lab']).withMessage('Invalid from lab ID'),
+  body('toLabId').optional().isIn(['LAB01', 'LAB02', 'LAB03', 'LAB04', 'LAB05', 'LAB06', 'LAB07', 'LAB08', 'central-lab']).withMessage('Invalid to lab ID'),
+  body('condition').optional().isIn(['good', 'damaged', 'broken', 'under_maintenance']).withMessage('Invalid condition'),
+  body('reason').optional().isString(),
+  body('notes').optional().isString(),
+  validate
+];
+
+// Glassware allocation validation
+const validateGlasswareAllocation = [
+  body('toLabId').isString().notEmpty().withMessage('To Lab ID is required for allocation'),
+  body('glasswareItems').isArray().notEmpty().withMessage('Glassware items array is required'),
+  body('glasswareItems.*.glasswareLiveId').isString().notEmpty().withMessage('Glassware Live ID is required'),
+  body('glasswareItems.*.quantity').isFloat({ min: 0.1 }).withMessage('Quantity must be greater than 0'),
+  validate
+];
+
+// Glassware transfer validation
+const validateGlasswareTransfer = [
+  body('fromLabId').isString().notEmpty().withMessage('From Lab ID is required for transfer'),
+  body('toLabId').isString().notEmpty().withMessage('To Lab ID is required for transfer'),
+  body('glasswareItems').isArray().notEmpty().withMessage('Glassware items array is required'),
+  body('glasswareItems.*.glasswareLiveId').isString().notEmpty().withMessage('Glassware Live ID is required'),
+  body('glasswareItems.*.quantity').isFloat({ min: 0.1 }).withMessage('Quantity must be greater than 0'),
+  validate
+];
+
+// Glassware condition update validation
+const validateGlasswareCondition = [
+  body('condition').isIn(['good', 'damaged', 'broken', 'under_maintenance']).withMessage('Invalid condition'),
+  body('reason').isString().notEmpty().withMessage('Reason is required for condition change'),
+  body('quantity').optional().isFloat({ min: 0.1 }).withMessage('Quantity must be greater than 0'),
+  validate
+];
+
 module.exports = {
   validateChemicalRequest,
   validateUnifiedRequest,
@@ -120,5 +161,9 @@ module.exports = {
   validateId,
   validateQueryParams,
   validateUserUpdate,
-  validatePasswordReset
+  validatePasswordReset,
+  validateGlasswareTransaction,
+  validateGlasswareAllocation,
+  validateGlasswareTransfer,
+  validateGlasswareCondition
 };

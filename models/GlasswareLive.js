@@ -11,6 +11,11 @@ const glasswareLiveSchema = new mongoose.Schema({
     },
   quantity: { type: Number, required: true },
   unit: { type: String },
+  condition: { 
+    type: String, 
+    enum: ['good', 'damaged', 'broken', 'under_maintenance'],
+    default: 'good'
+  },
   expiryDate: { type: Date },
   qrCodeData: String,      // The encoded data string
   qrCodeImage: String,     // Base64 encoded QR image

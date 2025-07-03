@@ -15,4 +15,10 @@ router.get('/central/available', glasswareController.getCentralAvailableGlasswar
 // Scan QR code for glassware
 router.post('/scan', glasswareController.scanGlasswareQRCode);
 
+// Glassware Transaction Routes
+router.post('/transaction', glasswareController.createGlasswareTransaction);
+router.get('/transactions/:glasswareId', glasswareController.getGlasswareTransactionHistory);
+router.get('/transactions/lab/:labId', glasswareController.getLabGlasswareTransactions);
+router.post('/:id/broken', glasswareController.markGlasswareAsBroken);
+
 module.exports = router;

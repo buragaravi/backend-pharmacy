@@ -62,7 +62,7 @@ const createInvoice = asyncHandler(async (req, res) => {
     vendorName: vendor.name,
     invoiceNumber,
     invoiceDate,
-    totalInvoicePrice, // <-- Save total invoice price
+    totalInvoicePrice: totalInvoicePrice >= 0 ? totalInvoicePrice : enrichedItems.reduce((sum, item) => sum + item.totalPrice, 0), // Allow 0 as valid total price
     lineItems: enrichedItems
   });
 
@@ -136,7 +136,7 @@ const createGlasswareInvoice = asyncHandler(async (req, res) => {
     vendorName: vendor.name,
     invoiceNumber,
     invoiceDate,
-    totalInvoicePrice,
+    totalInvoicePrice: totalInvoicePrice>0 ? totalInvoicePrice : enrichedItems.reduce((sum, item) => sum + item.totalPrice, 0),
     lineItems: enrichedItems
   });
   // Add glassware to central lab after invoice creation

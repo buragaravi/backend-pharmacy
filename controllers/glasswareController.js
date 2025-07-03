@@ -1,6 +1,5 @@
 const GlasswareLive = require('../models/GlasswareLive');
 const Product = require('../models/Product');
-const Transaction = require('../models/Transaction');
 const GlasswareTransaction = require('../models/GlasswareTransaction');
 const asyncHandler = require('express-async-handler');
 const mongoose = require('mongoose');
@@ -87,7 +86,7 @@ const addGlasswareToCentral = asyncHandler(async (req, res) => {
         condition: 'good',
         batchId,
         notes: `Initial entry to central lab`,
-        createdBy: req.userId
+        createdBy: req.userId || req._id || new mongoose.Types.ObjectId('68272133e26ef88fb399cd75') // Fallback admin ID
       });
 
       savedItems.push(newItem);
@@ -114,7 +113,7 @@ const addGlasswareToCentral = asyncHandler(async (req, res) => {
       condition: 'good',
       batchId,
       notes: `Additional stock entry to central lab`,
-      createdBy: req.userId
+      createdBy: req.userId || req._id || new mongoose.Types.ObjectId('68272133e26ef88fb399cd75') // Fallback admin ID
     });
 
     savedItems.push(existingItem);
@@ -230,7 +229,6 @@ const allocateGlasswareToLab = asyncHandler(async (req, res) => {
         }
 
         let totalAllocated = 0;
-        const transactionRecords = [];
 
         for (const central of centralStocks) {
           if (remainingQty <= 0) break;
@@ -266,20 +264,8 @@ const allocateGlasswareToLab = asyncHandler(async (req, res) => {
             { session, new: true, upsert: true }
           );
 
-          transactionRecords.push({
-            chemicalName: central.name,
-            transactionType: 'allocation',
-            chemicalLiveId: labStock._id,
-            fromLabId: 'central-lab',
-            toLabId,
-            quantity: allocQty,
-            unit: central.unit,
-            createdBy: req.user?._id || req.userId || new mongoose.Types.ObjectId('68272133e26ef88fb399cd75'),
-            timestamp: new Date()
-          });
-
-          // Also create glassware-specific transaction record
-          await GlasswareTransaction.create({
+          // Create glassware-specific transaction record
+          await GlasswareTransaction.create([{
             glasswareLiveId: central._id,
             glasswareName: central.name,
             transactionType: 'allocation',
@@ -291,7 +277,7 @@ const allocateGlasswareToLab = asyncHandler(async (req, res) => {
             batchId: central.batchId,
             notes: `Allocated from central lab to ${toLabId}`,
             createdBy: req.user?._id || req.userId || new mongoose.Types.ObjectId('68272133e26ef88fb399cd75')
-          });
+          }], { session });
 
           totalAllocated += allocQty;
           remainingQty -= allocQty;
@@ -309,8 +295,6 @@ const allocateGlasswareToLab = asyncHandler(async (req, res) => {
           });
           hasErrors = true;
         } else {
-          // Batch insert transactions for this allocation
-          await Transaction.insertMany(transactionRecords, { session });
           console.log(`Successfully allocated ${totalAllocated} of ${glasswareId} to lab ${toLabId}`);
           allocationResults.push({
             glasswareId,
@@ -405,19 +389,8 @@ exports.allocateGlasswareToFacultyInternal = async function({ allocations, fromL
       }
       labStock.quantity -= quantity;
       await labStock.save();
-      await Transaction.create({
-        transactionType: 'transfer',
-        chemicalName: labStock.name,
-        fromLabId,
-        toLabId: 'faculty',
-        chemicalLiveId: labStock._id,
-        quantity,
-        unit: labStock.unit,
-        createdBy: adminId,
-        timestamp: new Date(),
-      });
 
-      // Also create glassware-specific transaction record
+      // Create glassware-specific transaction record only
       await GlasswareTransaction.create({
         glasswareLiveId: labStock._id,
         glasswareName: labStock.name,
@@ -509,16 +482,17 @@ const scanGlasswareQRCode = asyncHandler(async (req, res) => {
     if (!productId || !variant || !batchId) {
       return res.status(400).json({ message: 'QR code missing required fields' });
     }
+    
     // Find all stock entries for this batchId (across all labs)
     const stock = await GlasswareLive.find({ productId, variant, batchId });
-    // Find all transactions for this batchId (across all labs)
-    const transactions = await Transaction.find({
-      chemicalName: { $exists: true },
-      $or: [
-        { 'chemicalName': { $regex: variant, $options: 'i' } },
-        { 'chemicalName': { $regex: batchId, $options: 'i' } }
-      ]
-    }).sort({ timestamp: -1 });
+    
+    // Find all glassware transactions for this batchId
+    const transactions = await GlasswareTransaction.find({
+      batchId: batchId
+    })
+    .populate('createdBy', 'name email')
+    .sort({ createdAt: -1 });
+    
     res.status(200).json({
       stock,
       transactions

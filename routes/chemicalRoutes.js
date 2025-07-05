@@ -47,7 +47,7 @@ router.post(
 // =====================
 router.post(
   '/allocate',
-  authorizeRole(['central_lab_admin']),
+  authorizeRole(['admin','central_lab_admin']),
   validateAllocationBatch,
   chemicalController.allocateChemicalsToLab
 );
@@ -96,13 +96,13 @@ router.get(
 // =====================
 router.get(
   '/expired',
-  authorizeRole(['central_lab_admin']),
+  authorizeRole(['admin','central_lab_admin']),
   chemicalController.getExpiredChemicals
 );
 
 router.post(
   '/expired/action',
-  authorizeRole(['central_lab_admin']),
+  authorizeRole(['central_lab_admin', 'admin']),
   chemicalController.processExpiredChemicalAction
 );
 

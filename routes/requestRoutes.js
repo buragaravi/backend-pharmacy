@@ -27,7 +27,7 @@ router.post('/',
 
 router.get('/', 
   authenticate, 
-  authorizeRole(['lab_assistant', 'central_lab_admin']), 
+  authorizeRole(['lab_assistant', 'central_lab_admin','admin']), 
   requestController.getAllRequests
 );
 
@@ -62,31 +62,31 @@ router.put('/approve',
 
 router.put('/:id/reject', 
   authenticate, 
-  authorizeRole(['lab_assistant', 'central_lab_admin']), 
+  authorizeRole(['lab_assistant', 'central_lab_admin','admin']), 
   requestController.rejectRequest
 );
 
 router.put('/:id/allocate', 
   authenticate, 
-  authorizeRole(['lab_assistant', 'central_lab_admin']), 
+  authorizeRole(['lab_assistant', 'central_lab_admin','admin']), 
   requestController.allocateChemicals
 );
 
 router.put('/:id/allocate-unified', 
   authenticate, 
-  authorizeRole(['lab_assistant', 'central_lab_admin']), 
+  authorizeRole(['lab_assistant', 'central_lab_admin', 'admin']), 
   requestController.allocateChemEquipGlass
 );
 
 router.put('/:id/complete', 
   authenticate, 
-  authorizeRole(['lab_assistant', 'central_lab_admin']), 
+  authorizeRole(['lab_assistant', 'central_lab_admin','admin']), 
   requestController.completeRequest
 );
 
 router.post('/fulfill-remaining', 
   authenticate, 
-  authorizeRole(['lab_assistant', 'central_lab_admin']), 
+  authorizeRole(['lab_assistant', 'central_lab_admin', 'admin']), 
   requestController.fulfillRemaining
 );
 

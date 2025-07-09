@@ -174,7 +174,9 @@ exports.returnChemEquipGlass = asyncHandler(async (req, res) => {
       console.log(`[GLASSWARE] Experiment glassware:`, (experiment.glassware || []).map(g => ({ 
         glasswareId: g.glasswareId, 
         isAllocated: g.isAllocated, 
-        allocatedQuantity: g.quantity 
+        allocatedQuantity: g.allocatedQuantity,
+        quantity: g.quantity,
+        allocationHistoryCount: (g.allocationHistory || []).length
       })));
       const glass = (experiment.glassware || []).find(gl => gl.glasswareId.equals(glasswareId));
       if (!glass || !glass.isAllocated) {
@@ -185,10 +187,29 @@ exports.returnChemEquipGlass = asyncHandler(async (req, res) => {
       }
       
       console.log(`[GLASSWARE] Found glass:`, JSON.stringify(glass, null, 2));
-      console.log(`[GLASSWARE] Allocated quantity: ${glass.allocatedQuantity}, Requested return: ${quantity}`);
-      if (quantity > (glass.allocatedQuantity || 0)) {
-        console.log(`[GLASSWARE] Return quantity exceeds allocated for glassware ${glasswareId}. Allocated: ${glass.allocatedQuantity || 0}, Requested: ${quantity}`);
-        errors.push({ type: 'glassware', error: `Return quantity exceeds allocated for glassware ${glasswareId}. Allocated: ${glass.allocatedQuantity || 0}, Requested: ${quantity}` });
+      
+      // Calculate total allocated quantity from allocation history
+      let totalAllocatedQuantity = 0;
+      if (glass.allocationHistory && Array.isArray(glass.allocationHistory)) {
+        totalAllocatedQuantity = glass.allocationHistory.reduce((total, allocation) => {
+          return total + (allocation.quantity || 0);
+        }, 0);
+        console.log(`[GLASSWARE] Total allocated from history: ${totalAllocatedQuantity}`);
+      } else if (glass.allocatedQuantity) {
+        // Fallback to direct allocatedQuantity field if it exists
+        totalAllocatedQuantity = glass.allocatedQuantity;
+        console.log(`[GLASSWARE] Using direct allocatedQuantity: ${totalAllocatedQuantity}`);
+      } else if (glass.quantity) {
+        // If no allocation history, use the quantity field as allocated amount
+        totalAllocatedQuantity = glass.quantity;
+        console.log(`[GLASSWARE] Using quantity field as allocated: ${totalAllocatedQuantity}`);
+      }
+      
+      console.log(`[GLASSWARE] Total allocated quantity: ${totalAllocatedQuantity}, Requested return: ${quantity}`);
+      
+      if (quantity > totalAllocatedQuantity) {
+        console.log(`[GLASSWARE] Return quantity exceeds allocated for glassware ${glasswareId}. Allocated: ${totalAllocatedQuantity}, Requested: ${quantity}`);
+        errors.push({ type: 'glassware', error: `Return quantity exceeds allocated for glassware ${glasswareId}. Allocated: ${totalAllocatedQuantity}, Requested: ${quantity}` });
         continue;
       }
       
@@ -258,17 +279,46 @@ exports.returnChemEquipGlass = asyncHandler(async (req, res) => {
         errors.push({ type: 'glassware', error: `Failed to update glassware stock: ${error.message}` });
         continue;
       }
-      glass.allocatedQuantity -= quantity;
+      
+      // Update allocation tracking - handle both allocatedQuantity field and allocationHistory
+      if (glass.allocatedQuantity !== undefined) {
+        // If there's a direct allocatedQuantity field, update it
+        glass.allocatedQuantity -= quantity;
+        if (glass.allocatedQuantity <= 0) {
+          glass.isAllocated = false;
+          glass.allocatedQuantity = 0;
+          console.log(`[GLASSWARE] All quantity returned for glassware ${glasswareId}, marked as not allocated.`);
+        }
+      } else if (glass.allocationHistory && Array.isArray(glass.allocationHistory)) {
+        // If using allocation history, reduce from the most recent allocation
+        let remainingToReturn = quantity;
+        for (let i = glass.allocationHistory.length - 1; i >= 0 && remainingToReturn > 0; i--) {
+          const allocation = glass.allocationHistory[i];
+          const returnFromThisAllocation = Math.min(allocation.quantity, remainingToReturn);
+          allocation.quantity -= returnFromThisAllocation;
+          remainingToReturn -= returnFromThisAllocation;
+          
+          // Remove allocation entry if quantity becomes 0
+          if (allocation.quantity <= 0) {
+            glass.allocationHistory.splice(i, 1);
+          }
+        }
+        
+        // Check if all allocations are returned
+        const remainingAllocated = glass.allocationHistory.reduce((total, alloc) => total + alloc.quantity, 0);
+        if (remainingAllocated <= 0) {
+          glass.isAllocated = false;
+          console.log(`[GLASSWARE] All quantity returned for glassware ${glasswareId}, marked as not allocated.`);
+        }
+      }
+      
+      // Add to return history
       glass.returnHistory = glass.returnHistory || [];
       glass.returnHistory.push({
         date: new Date(),
         quantity,
         returnedBy: adminId
       });
-      if (glass.allocatedQuantity === 0) {
-        glass.isAllocated = false;
-        console.log(`[GLASSWARE] All quantity returned for glassware ${glasswareId}, marked as not allocated.`);
-      }
     }
   }
 

@@ -27,11 +27,11 @@ const glasswareTransactionSchema = new mongoose.Schema(
     },
     fromLabId: {
       type: String,
-      enum: ['LAB01', 'LAB02', 'LAB03', 'LAB04', 'LAB05', 'LAB06', 'LAB07', 'LAB08', 'central-lab'],
+      enum: ['LAB01', 'LAB02', 'LAB03', 'LAB04', 'LAB05', 'LAB06', 'LAB07', 'LAB08', 'central-lab','faculty'],
     },
     toLabId: {
       type: String,
-      enum: ['LAB01', 'LAB02', 'LAB03', 'LAB04', 'LAB05', 'LAB06', 'LAB07', 'LAB08', 'central-lab'],
+      enum: ['LAB01', 'LAB02', 'LAB03', 'LAB04', 'LAB05', 'LAB06', 'LAB07', 'LAB08', 'central-lab', 'faculty'],
     },
     reason: {
       type: String,

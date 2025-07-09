@@ -174,7 +174,7 @@ exports.returnChemEquipGlass = asyncHandler(async (req, res) => {
       console.log(`[GLASSWARE] Experiment glassware:`, (experiment.glassware || []).map(g => ({ 
         glasswareId: g.glasswareId, 
         isAllocated: g.isAllocated, 
-        allocatedQuantity: g.allocatedQuantity 
+        allocatedQuantity: g.quantity 
       })));
       const glass = (experiment.glassware || []).find(gl => gl.glasswareId.equals(glasswareId));
       if (!glass || !glass.isAllocated) {

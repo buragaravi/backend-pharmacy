@@ -14,6 +14,25 @@ const isValidObjectId = (id) => {
   return mongoose.Types.ObjectId.isValid(id);
 };
 
+// Helper function to validate allocation input
+const validateAllocationInput = (chemical) => {
+  const errors = [];
+  
+  if (!chemical.chemicalName || typeof chemical.chemicalName !== 'string' || chemical.chemicalName.trim() === '') {
+    errors.push('Chemical name is required and must be a non-empty string');
+  }
+  
+  if (!chemical.quantity || typeof chemical.quantity !== 'number' || chemical.quantity <= 0) {
+    errors.push('Quantity must be a positive number');
+  }
+  
+  if (!chemical.unit || typeof chemical.unit !== 'string' || chemical.unit.trim() === '') {
+    errors.push('Unit is required and must be a non-empty string');
+  }
+  
+  return errors;
+};
+
 // @desc    Approve, reject or fulfill a request
 // @route   POST /api/requests/approve
 // @access  Private (Admin/Lab Assistant)
@@ -958,46 +977,215 @@ exports.allocateChemEquipGlass = asyncHandler(async (req, res) => {
   let chemResult = null, glassResult = null, equipResult = null;
   let errors = [];
 
-  // --- 1. Allocate Chemicals (use chemicals from experiment, not from req.body) ---
+  // --- 1. Enhanced Chemical Allocation with Fallback and Transaction Safety ---
+  // Helper function for atomic chemical allocation with fallback
+  async function allocateChemicalWithFallback(chemical, labId, adminId, session) {
+    const { chemicalName, quantity, unit, chemicalMasterId } = chemical;
+    let remainingQty = quantity;
+    let allocations = [];
+    let totalAllocated = 0;
+
+    console.log(`[allocateChemicalWithFallback] Processing ${chemicalName}, requested: ${quantity}`);
+
+    // 1. Try to allocate from requested lab first
+    try {
+      const labStock = await ChemicalLive.findOne({ chemicalName, labId }).session(session);
+      if (labStock && labStock.quantity > 0) {
+        const allocateFromLab = Math.min(labStock.quantity, remainingQty);
+        
+        // Atomic update with session
+        const updatedLabStock = await ChemicalLive.findOneAndUpdate(
+          { _id: labStock._id, quantity: { $gte: allocateFromLab } },
+          { $inc: { quantity: -allocateFromLab } },
+          { new: true, session }
+        );
+        
+        if (updatedLabStock) {
+          allocations.push({
+            source: 'lab',
+            fromLabId: labId,
+            quantity: allocateFromLab,
+            stockId: updatedLabStock._id,
+            sourceName: `Lab ${labId}`
+          });
+          remainingQty -= allocateFromLab;
+          totalAllocated += allocateFromLab;
+          console.log(`[allocateChemicalWithFallback] Allocated ${allocateFromLab} from ${labId}, remaining: ${remainingQty}`);
+        }
+      }
+    } catch (err) {
+      console.error(`[allocateChemicalWithFallback] Error allocating from lab ${labId}:`, err);
+    }
+
+    // 2. If still need more, try central lab
+    if (remainingQty > 0) {
+      try {
+        const centralStock = await ChemicalLive.findOne({ 
+          chemicalName, 
+          labId: 'central-lab' 
+        }).session(session);
+        
+        if (centralStock && centralStock.quantity > 0) {
+          const allocateFromCentral = Math.min(centralStock.quantity, remainingQty);
+          
+          // Atomic update with session
+          const updatedCentralStock = await ChemicalLive.findOneAndUpdate(
+            { _id: centralStock._id, quantity: { $gte: allocateFromCentral } },
+            { $inc: { quantity: -allocateFromCentral } },
+            { new: true, session }
+          );
+          
+          if (updatedCentralStock) {
+            allocations.push({
+              source: 'central',
+              fromLabId: 'central-lab',
+              quantity: allocateFromCentral,
+              stockId: updatedCentralStock._id,
+              sourceName: 'Central Lab'
+            });
+            remainingQty -= allocateFromCentral;
+            totalAllocated += allocateFromCentral;
+            console.log(`[allocateChemicalWithFallback] Allocated ${allocateFromCentral} from central-lab, remaining: ${remainingQty}`);
+          }
+        }
+      } catch (err) {
+        console.error(`[allocateChemicalWithFallback] Error allocating from central-lab:`, err);
+      }
+    }
+
+    // 3. Create transaction records for each allocation source
+    const transactionPromises = allocations.map(allocation => 
+      Transaction.create([{
+        transactionType: 'transfer',
+        chemicalName,
+        fromLabId: allocation.fromLabId,
+        toLabId: 'faculty',
+        chemicalLiveId: allocation.stockId,
+        quantity: allocation.quantity,
+        unit,
+        createdBy: adminId,
+        timestamp: new Date(),
+        notes: `Allocation from ${allocation.sourceName} (${allocation.quantity}/${quantity} total requested)`
+      }], { session })
+    );
+
+    await Promise.all(transactionPromises);
+
+    return {
+      success: remainingQty === 0,
+      allocations,
+      remainingQty,
+      totalAllocated,
+      chemicalName,
+      requestedQuantity: quantity
+    };
+  }
+
+  // Main chemical allocation logic with session management
+  const chemicalSession = await mongoose.startSession();
   try {
+    chemicalSession.startTransaction();
+    
     for (const experiment of request.experiments) {
       for (const chemical of experiment.chemicals) {
         if (chemical.isAllocated) continue;
-        const { chemicalName, quantity, unit, chemicalMasterId } = chemical;
-        console.log('[allocateChemEquipGlass] Allocating chemical:', chemicalName, 'quantity:', quantity);
-        const labStock = await ChemicalLive.findOne({ chemicalName, labId });
-        if (!labStock || labStock.quantity < quantity) {
-          console.log('[allocateChemEquipGlass] Insufficient stock for', chemicalName);
-          errors.push({ type: 'chemicals', error: `Insufficient stock for ${chemicalName}` });
+        
+        console.log(`[allocateChemEquipGlass] Allocating chemical: ${chemical.chemicalName}, quantity: ${chemical.quantity}`);
+        
+        // Validate chemical data
+        const validationErrors = validateAllocationInput(chemical);
+        if (validationErrors.length > 0) {
+          errors.push({ 
+            type: 'chemicals', 
+            error: `Invalid chemical data for ${chemical.chemicalName}: ${validationErrors.join(', ')}`,
+            details: { 
+              chemicalName: chemical.chemicalName,
+              quantity: chemical.quantity,
+              unit: chemical.unit,
+              validationErrors 
+            }
+          });
           continue;
         }
-        labStock.quantity -= quantity;
-        await labStock.save();
-        await Transaction.create({
-          transactionType: 'transfer',
-          chemicalName,
-          fromLabId: labId,
-          toLabId: 'faculty',
-          chemicalLiveId: labStock._id,
-          quantity,
-          unit,
-          createdBy: adminId,
-          timestamp: new Date(),
-        });
-        chemical.allocatedQuantity = quantity;
-        chemical.isAllocated = true;
-        chemical.allocationHistory = chemical.allocationHistory || [];
-        chemical.allocationHistory.push({
-          date: new Date(),
-          quantity,
-          allocatedBy: adminId
-        });
-        console.log('[allocateChemEquipGlass] Allocated chemical:', chemicalName);
+
+        // Attempt allocation with fallback
+        const allocationResult = await allocateChemicalWithFallback(
+          chemical, 
+          labId, 
+          adminId, 
+          chemicalSession
+        );
+
+        if (allocationResult.success) {
+          // Full allocation successful
+          chemical.allocatedQuantity = allocationResult.totalAllocated;
+          chemical.isAllocated = true;
+          chemical.allocationHistory = chemical.allocationHistory || [];
+          chemical.allocationHistory.push({
+            date: new Date(),
+            quantity: allocationResult.totalAllocated,
+            allocatedBy: adminId,
+            sources: allocationResult.allocations.map(a => ({
+              source: a.sourceName,
+              quantity: a.quantity
+            }))
+          });
+          
+          console.log(`[allocateChemEquipGlass] Successfully allocated ${allocationResult.totalAllocated} of ${chemical.chemicalName} from ${allocationResult.allocations.length} source(s)`);
+          
+        } else {
+          // Partial or failed allocation
+          if (allocationResult.totalAllocated > 0) {
+            // Partial allocation
+            chemical.allocatedQuantity = allocationResult.totalAllocated;
+            chemical.isAllocated = false; // Mark as not fully allocated
+            chemical.allocationHistory = chemical.allocationHistory || [];
+            chemical.allocationHistory.push({
+              date: new Date(),
+              quantity: allocationResult.totalAllocated,
+              allocatedBy: adminId,
+              sources: allocationResult.allocations.map(a => ({
+                source: a.sourceName,
+                quantity: a.quantity
+              })),
+              isPartial: true
+            });
+          }
+          
+          errors.push({
+            type: 'chemicals',
+            error: `Partial allocation for ${chemical.chemicalName}`,
+            details: {
+              requested: allocationResult.requestedQuantity,
+              allocated: allocationResult.totalAllocated,
+              remaining: allocationResult.remainingQty,
+              sources: allocationResult.allocations.map(a => ({
+                source: a.sourceName,
+                fromLabId: a.fromLabId,
+                quantity: a.quantity
+              })),
+              availableSources: allocationResult.allocations.length
+            }
+          });
+          
+          console.log(`[allocateChemEquipGlass] Partial allocation for ${chemical.chemicalName}: ${allocationResult.totalAllocated}/${allocationResult.requestedQuantity}`);
+        }
       }
     }
+    
+    await chemicalSession.commitTransaction();
+    console.log('[allocateChemEquipGlass] Chemical allocation session committed successfully');
+    
   } catch (err) {
-    console.log('[allocateChemEquipGlass] Error in chemical allocation:', err);
-    errors.push({ type: 'chemicals', error: err.message });
+    await chemicalSession.abortTransaction();
+    console.error('[allocateChemEquipGlass] Chemical allocation session aborted due to error:', err);
+    errors.push({ 
+      type: 'chemicals', 
+      error: `Chemical allocation failed: ${err.message}`,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
+  } finally {
+    chemicalSession.endSession();
   }
 
   // --- 2. Allocate Glassware (if present in body) ---

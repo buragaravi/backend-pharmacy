@@ -53,6 +53,18 @@ const createInvoice = asyncHandler(async (req, res) => {
       expiryDate: item.expiryDate // Add expiryDate from request
     };
   }));
+  // Calculate total if not provided or invalid
+  const calculatedTotal = enrichedItems.reduce((sum, item) => sum + item.totalPrice, 0);
+  const finalTotalPrice = (totalInvoicePrice !== undefined && totalInvoicePrice !== null && totalInvoicePrice >= 0) 
+    ? totalInvoicePrice 
+    : calculatedTotal;
+
+  console.log('Chemical Invoice Debug - Price calculation:', {
+    providedTotal: totalInvoicePrice,
+    calculatedTotal,
+    finalTotalPrice
+  });
+
   // Generate invoiceId
   const invoiceId = await generateInvoiceId();
   // Save invoice
@@ -62,7 +74,7 @@ const createInvoice = asyncHandler(async (req, res) => {
     vendorName: vendor.name,
     invoiceNumber,
     invoiceDate,
-    totalInvoicePrice: totalInvoicePrice >= 0 ? totalInvoicePrice : enrichedItems.reduce((sum, item) => sum + item.totalPrice, 0), // Allow 0 as valid total price
+    totalInvoicePrice: finalTotalPrice,
     lineItems: enrichedItems
   });
 
@@ -127,6 +139,18 @@ const createGlasswareInvoice = asyncHandler(async (req, res) => {
       pricePerUnit: item.totalPrice / item.quantity
     };
   }));
+  // Calculate total if not provided or invalid
+  const calculatedTotal = enrichedItems.reduce((sum, item) => sum + item.totalPrice, 0);
+  const finalTotalPrice = (totalInvoicePrice !== undefined && totalInvoicePrice !== null && totalInvoicePrice >= 0) 
+    ? totalInvoicePrice 
+    : calculatedTotal;
+
+  console.log('Glassware Invoice Debug - Price calculation:', {
+    providedTotal: totalInvoicePrice,
+    calculatedTotal,
+    finalTotalPrice
+  });
+
   // Generate invoiceId
   const invoiceId = await generateInvoiceId();
   // Save invoice
@@ -136,7 +160,7 @@ const createGlasswareInvoice = asyncHandler(async (req, res) => {
     vendorName: vendor.name,
     invoiceNumber,
     invoiceDate,
-    totalInvoicePrice: totalInvoicePrice > 0 ? totalInvoicePrice : enrichedItems.reduce((sum, item) => sum + item.totalPrice, 0),
+    totalInvoicePrice: finalTotalPrice,
     lineItems: enrichedItems
   });
   // Add glassware to central lab after invoice creation
@@ -193,6 +217,18 @@ const createOthersInvoice = asyncHandler(async (req, res) => {
       pricePerUnit: item.totalPrice / item.quantity
     };
   }));
+  // Calculate total if not provided or invalid
+  const calculatedTotal = enrichedItems.reduce((sum, item) => sum + item.totalPrice, 0);
+  const finalTotalPrice = (totalInvoicePrice !== undefined && totalInvoicePrice !== null && totalInvoicePrice >= 0) 
+    ? totalInvoicePrice 
+    : calculatedTotal;
+
+  console.log('Others Invoice Debug - Price calculation:', {
+    providedTotal: totalInvoicePrice,
+    calculatedTotal,
+    finalTotalPrice
+  });
+
   // Generate invoiceId
   const invoiceId = await generateInvoiceId();
   // Save invoice
@@ -202,7 +238,7 @@ const createOthersInvoice = asyncHandler(async (req, res) => {
     vendorName: vendor.name,
     invoiceNumber,
     invoiceDate,
-    totalInvoicePrice,
+    totalInvoicePrice: finalTotalPrice,
     lineItems: enrichedItems
   });
   // Add other products to central lab after invoice creation
@@ -233,17 +269,29 @@ const createOthersInvoice = asyncHandler(async (req, res) => {
 // @access  Private (role-safe)
 const createEquipmentInvoice = asyncHandler(async (req, res) => {
   const { vendorId, invoiceNumber, invoiceDate, lineItems, totalInvoicePrice } = req.body;
+  
+  console.log('Equipment Invoice Debug - Request body:', {
+    vendorId,
+    invoiceNumber, 
+    invoiceDate,
+    lineItemsCount: lineItems?.length,
+    totalInvoicePrice
+  });
+
   if (!vendorId || !invoiceNumber || !invoiceDate || !Array.isArray(lineItems) || lineItems.length === 0) {
     return res.status(400).json({ message: 'All fields are required' });
   }
+  
   // Fetch vendor
   const vendor = await Vendor.findById(vendorId);
   if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
+  
   // Prevent duplicate products in lineItems
   const productIds = lineItems.map(item => item.productId.toString());
   if (new Set(productIds).size !== productIds.length) {
     return res.status(400).json({ message: 'Duplicate products in invoice' });
   }
+  
   // Validate and enrich line items
   const enrichedItems = await Promise.all(lineItems.map(async item => {
     const product = await Product.findById(item.productId);
@@ -259,8 +307,23 @@ const createEquipmentInvoice = asyncHandler(async (req, res) => {
       pricePerUnit: item.totalPrice / item.quantity
     };
   }));
+
+  // Calculate total if not provided or invalid
+  const calculatedTotal = enrichedItems.reduce((sum, item) => sum + item.totalPrice, 0);
+  const finalTotalPrice = (totalInvoicePrice !== undefined && totalInvoicePrice !== null && totalInvoicePrice >= 0) 
+    ? totalInvoicePrice 
+    : calculatedTotal;
+
+  console.log('Equipment Invoice Debug - Price calculation:', {
+    providedTotal: totalInvoicePrice,
+    calculatedTotal,
+    finalTotalPrice,
+    itemPrices: enrichedItems.map(item => ({ name: item.name, totalPrice: item.totalPrice }))
+  });
+
   // Generate invoiceId
   const invoiceId = await generateInvoiceId();
+  
   // Save invoice
   const invoice = await Invoice.create({
     invoiceId,
@@ -268,7 +331,7 @@ const createEquipmentInvoice = asyncHandler(async (req, res) => {
     vendorName: vendor.name,
     invoiceNumber,
     invoiceDate,
-    totalInvoicePrice,
+    totalInvoicePrice: finalTotalPrice,
     lineItems: enrichedItems
   });
   // Add equipment to central lab after invoice creation and capture QR codes

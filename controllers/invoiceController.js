@@ -136,7 +136,7 @@ const createGlasswareInvoice = asyncHandler(async (req, res) => {
     vendorName: vendor.name,
     invoiceNumber,
     invoiceDate,
-    totalInvoicePrice: totalInvoicePrice>0 ? totalInvoicePrice : enrichedItems.reduce((sum, item) => sum + item.totalPrice, 0),
+    totalInvoicePrice: totalInvoicePrice > 0 ? totalInvoicePrice : enrichedItems.reduce((sum, item) => sum + item.totalPrice, 0),
     lineItems: enrichedItems
   });
   // Add glassware to central lab after invoice creation

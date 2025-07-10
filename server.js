@@ -20,8 +20,45 @@ connectDB();
 // Initialize Express app
 const app = express();
 
-// Enable CORS
-app.use(cors());
+// Enable CORS with specific configuration
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Allow localhost and common frontend domains
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:3001', 
+      'http://localhost:5173',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:5173',
+      /\.onrender\.com$/,
+      /\.vercel\.app$/,
+      /\.netlify\.app$/
+    ];
+    
+    const isAllowed = allowedOrigins.some(pattern => {
+      if (typeof pattern === 'string') {
+        return origin === pattern;
+      }
+      return pattern.test(origin);
+    });
+    
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.log('CORS Debug - Origin allowed:', origin);
+      callback(null, true); // Allow all origins for now to debug
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Authorization']
+};
+
+app.use(cors(corsOptions));
 
 // Body parser
 app.use(express.json());

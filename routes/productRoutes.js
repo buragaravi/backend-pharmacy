@@ -4,11 +4,28 @@ const productController = require('../controllers/productController');
 const authenticate = require('../middleware/authMiddleware');
 const authorizeRole = require('../middleware/roleMiddleware');
 
-// Public routes
+// Public routes - No authentication required
 router.get('/', productController.getAllProducts);
 router.get('/category/:category', productController.getProductsByCategory);
+router.get('/search', productController.searchProducts);
 
-// Protected routes (add authentication middleware as needed)
+// Protected stats route - Admin and Central Lab Admin only
+router.get('/stats', authenticate, authorizeRole(['admin', 'central_lab_admin']), productController.getProductStats);
+
+// Test route for admin access
+router.get('/admin-test', authenticate, authorizeRole(['admin', 'central_lab_admin']), (req, res) => {
+  res.json({
+    success: true,
+    message: 'Admin access is working properly',
+    user: {
+      id: req.user._id,
+      email: req.user.email,
+      role: req.user.role
+    }
+  });
+});
+
+// Protected routes - Admin and Central Lab Admin only
 router.post('/', 
   authenticate, 
   authorizeRole(['admin', 'central_lab_admin']), 
@@ -32,10 +49,5 @@ router.delete('/:id',
   authorizeRole(['admin', 'central_lab_admin']), 
   productController.deleteProduct
 );
-
-// In routes
-router.get('/search', productController.searchProducts);
-
-router.get('/stats', productController.getProductStats);
 
 module.exports = router;

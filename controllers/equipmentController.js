@@ -298,44 +298,116 @@ const getEquipmentStock = asyncHandler(async (req, res) => {
   res.status(200).json(stock);
 });
 
-// Get available equipment in central lab (for allocation forms)
+// Get all live equipment from all labs (detailed information)
 const getCentralAvailableEquipment = asyncHandler(async (req, res) => {
   try {
-    const stock = await EquipmentLive.find({ labId: 'central-lab', })
-      .populate('productId', 'name unit variant')
+    console.log('Fetching all equipment from all labs...');
+    
+    // Fetch ALL equipment from ALL labs - no labId filter
+    const stock = await EquipmentLive.find({})
+      .populate('productId', 'name unit variant category subCategory thresholdValue')
+      .populate('addedBy', 'name email')
       .sort({ createdAt: -1 });
+
+    console.log(`Found ${stock.length} equipment items across all labs`);
+
     // Ensure name/unit/variant are always present (from product if missing)
     const result = stock.map(item => {
       let name = item.name;
       let unit = item.unit;
       let variant = item.variant;
 
-      if ((!name || !unit) && item.productId && typeof item.productId === 'object') {
+      if ((!name || !unit || !variant) && item.productId && typeof item.productId === 'object') {
         name = name || item.productId.name;
         unit = unit || item.productId.unit;
         variant = variant || item.productId.variant;
       }
+
       return {
         _id: item._id,
         itemId: item.itemId,
         status: item.status,
         location: item.location,
+        labId: item.labId,
         assignedTo: item.assignedTo,
         batchId: item.batchId,
         productId: item.productId._id ? item.productId._id : item.productId,
         name,
         variant,
-        quantity: item.quantity,
         unit,
+        quantity: item.quantity || 1, // Default to 1 for equipment items
         expiryDate: item.expiryDate,
+        warranty: item.warranty,
+        maintenanceCycle: item.maintenanceCycle,
+        vendor: item.vendor,
+        pricePerUnit: item.pricePerUnit,
+        department: item.department,
         qrCodeImage: item.qrCodeImage,
-        qrCodeData: item.qrCodeData
-
+        qrCodeData: item.qrCodeData,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+        addedBy: item.addedBy ? {
+          _id: item.addedBy._id,
+          name: item.addedBy.name,
+          email: item.addedBy.email
+        } : null,
+        // Include product details if populated
+        product: item.productId && typeof item.productId === 'object' ? {
+          _id: item.productId._id,
+          name: item.productId.name,
+          category: item.productId.category,
+          subCategory: item.productId.subCategory,
+          variant: item.productId.variant,
+          unit: item.productId.unit,
+          thresholdValue: item.productId.thresholdValue
+        } : null
       };
     });
-    res.status(200).json(result);
+
+    // Group by lab for better organization
+    const groupedByLab = result.reduce((acc, item) => {
+      const lab = item.labId || 'unknown';
+      if (!acc[lab]) {
+        acc[lab] = [];
+      }
+      acc[lab].push(item);
+      return acc;
+    }, {});
+
+    // Calculate summary statistics
+    const summary = {
+      total: result.length,
+      byLab: Object.keys(groupedByLab).map(lab => ({
+        labId: lab,
+        count: groupedByLab[lab].length,
+        available: groupedByLab[lab].filter(item => item.status === 'Available').length,
+        issued: groupedByLab[lab].filter(item => item.status === 'Issued').length,
+        maintenance: groupedByLab[lab].filter(item => item.status === 'Maintenance').length,
+        damaged: groupedByLab[lab].filter(item => item.status === 'Damaged').length
+      })),
+      byStatus: {
+        available: result.filter(item => item.status === 'Available').length,
+        issued: result.filter(item => item.status === 'Issued').length,
+        maintenance: result.filter(item => item.status === 'Maintenance').length,
+        damaged: result.filter(item => item.status === 'Damaged').length
+      }
+    };
+
+    console.log('Equipment summary:', summary);
+
+    res.status(200).json({
+      success: true,
+      data: result,
+      groupedByLab,
+      summary
+    });
   } catch (err) {
-    res.status(500).json({ message: 'Failed to fetch available equipment', error: err.message });
+    console.error('Failed to fetch equipment:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch equipment', 
+      error: err.message 
+    });
   }
 });
 

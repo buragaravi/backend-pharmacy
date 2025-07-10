@@ -4,13 +4,8 @@ const User = require('../models/User');
 
 const authenticate = async (req, res, next) => {
   const token = req.header('Authorization')?.replace('Bearer ', '');
-  
-  console.log('Auth Debug - URL:', req.originalUrl);
-  console.log('Auth Debug - Method:', req.method);
-  console.log('Auth Debug - Headers:', req.headers.authorization ? 'Token present' : 'No token');
 
   if (!token) {
-    console.log('Auth Debug - No token provided for protected route');
     return res.status(401).json({ message: 'Access denied. No token provided.' });
   }
 
@@ -34,8 +29,6 @@ const authenticate = async (req, res, next) => {
       role: userRole // Ensure role is set from token
     };
     req.userId = userId;
-    
-    console.log('Auth Debug - User authenticated:', user.email, 'Role:', userRole);
 
     next();
   } catch (error) {

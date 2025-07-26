@@ -32,7 +32,7 @@ const authenticate = async (req, res, next) => {
 
     next();
   } catch (error) {
-    console.error('JWT Error:', error);
+    console.error('JWT Error:', error.message);
     res.status(400).json({ message: 'Invalid token.' });
   }
 };

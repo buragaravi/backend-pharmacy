@@ -36,7 +36,7 @@ router.get('/stock',
 // Get available equipment in central lab (for allocation forms)
 router.get('/central/available', 
   authenticate, 
-  authorizeRole(['admin', 'central_lab_admin', 'lab_assistant']), 
+  authorizeRole(['admin', 'central_lab_admin', 'lab_assistant', 'faculty']), 
   equipmentController.getCentralAvailableEquipment
 );
 
@@ -89,7 +89,7 @@ router.post('/stock-check/report',
 
 router.get('/live', 
   authenticate, 
-  authorizeRole(['admin', 'central_lab_admin', 'lab_assistant']), 
+  authorizeRole(['admin', 'central_lab_admin', 'lab_assistant', 'faculty']), 
   getLiveEquipmentByLab
 );
 

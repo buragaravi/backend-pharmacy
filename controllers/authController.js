@@ -50,7 +50,129 @@ exports.register = async (req, res) => {
     });
 
     await newUser.save();
-    res.status(201).json({ msg: 'User registered successfully' });
+
+    // Send welcome email with credentials
+    try {
+      const emailData = {
+        to: [{ email, name }],
+        subject: 'Welcome to Pydah Pharmacy - Your Account Details',
+        htmlContent: `
+          <div style="font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px; min-height: 100vh;">
+            <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);">
+              
+              <!-- Header Section -->
+              <div style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 40px 30px; text-align: center; position: relative; overflow: hidden;">
+                <div style="position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%); animation: pulse 4s ease-in-out infinite;"></div>
+                <div style="position: relative; z-index: 2;">
+                  <div style="display: inline-block; background: rgba(255, 255, 255, 0.2); padding: 16px; border-radius: 50%; margin-bottom: 20px; backdrop-filter: blur(10px);">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M16 7C16 9.20914 14.2091 11 12 11C9.79086 11 8 9.20914 8 7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M12 14C8.13401 14 5 17.134 5 21H19C19 17.134 15.866 14 12 14Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </div>
+                  <h1 style="color: #ffffff; font-size: 32px; font-weight: 700; margin: 0; letter-spacing: -0.5px; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">Welcome to Pydah Pharmacy!</h1>
+                  <p style="color: rgba(255, 255, 255, 0.9); font-size: 18px; margin: 10px 0 0 0; font-weight: 300;">Your account has been created successfully</p>
+                </div>
+              </div>
+
+              <!-- Main Content -->
+              <div style="padding: 40px 30px;">
+                <div style="text-align: center; margin-bottom: 40px;">
+                  <h2 style="color: #1f2937; font-size: 24px; font-weight: 600; margin: 0 0 10px 0;">Hello ${name}! 👋</h2>
+                  <p style="color: #6b7280; font-size: 16px; line-height: 1.6; margin: 0;">Your pharmacy management account is ready to use. Here are your login credentials:</p>
+                </div>
+
+                <!-- Credentials Card -->
+                <div style="background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); border-radius: 16px; padding: 30px; margin: 30px 0; border: 1px solid #e5e7eb; position: relative; overflow: hidden;">
+                  <div style="position: absolute; top: -10px; right: -10px; width: 60px; height: 60px; background: linear-gradient(135deg, #4f46e5, #7c3aed); border-radius: 50%; opacity: 0.1;"></div>
+                  <div style="position: relative; z-index: 2;">
+                    <h3 style="color: #374151; font-size: 18px; font-weight: 600; margin: 0 0 20px 0; text-align: center;">Your Login Credentials</h3>
+                    
+                    <div style="background: #ffffff; border-radius: 12px; padding: 20px; margin-bottom: 15px; border-left: 4px solid #4f46e5; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                      <div style="color: #6b7280; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Email Address</div>
+                      <div style="color: #1f2937; font-size: 16px; font-weight: 600; font-family: 'Monaco', 'Menlo', monospace;">${email}</div>
+                    </div>
+                    
+                    <div style="background: #ffffff; border-radius: 12px; padding: 20px; margin-bottom: 15px; border-left: 4px solid #7c3aed; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                      <div style="color: #6b7280; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Temporary Password</div>
+                      <div style="color: #1f2937; font-size: 16px; font-weight: 600; font-family: 'Monaco', 'Menlo', monospace;">${password}</div>
+                    </div>
+                    
+                    <div style="background: #ffffff; border-radius: 12px; padding: 20px; border-left: 4px solid #059669; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                      <div style="color: #6b7280; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Role</div>
+                      <div style="color: #1f2937; font-size: 16px; font-weight: 600; text-transform: capitalize;">${role.replace('_', ' ')}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Security Notice -->
+                <div style="background: linear-gradient(135deg, #fef3c7 0%, #fcd34d 100%); border-radius: 12px; padding: 20px; margin: 30px 0; border-left: 4px solid #f59e0b;">
+                  <div style="display: flex; align-items: flex-start;">
+                    <div style="margin-right: 12px; margin-top: 2px;">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 style="color: #92400e; font-size: 16px; font-weight: 600; margin: 0 0 8px 0;">Important Security Notice</h4>
+                      <p style="color: #92400e; font-size: 14px; line-height: 1.5; margin: 0;">Please change your password after your first login for security purposes. Keep your credentials confidential and never share them with unauthorized personnel.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Action Button -->
+                <div style="text-align: center; margin: 40px 0;">
+                  <a href="${process.env.FRONTEND_URL || 'https://pydah-pharmacy-labs.vercel.app'}/login" style="display: inline-block; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; text-decoration: none; padding: 16px 32px; border-radius: 50px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4); transition: all 0.3s ease;">
+                    Access Your Account →
+                  </a>
+                </div>
+
+                <!-- Support Info -->
+                <div style="background: #f8fafc; border-radius: 12px; padding: 20px; text-align: center; border: 1px solid #e5e7eb;">
+                  <h4 style="color: #374151; font-size: 16px; font-weight: 600; margin: 0 0 10px 0;">Need Help?</h4>
+                  <p style="color: #6b7280; font-size: 14px; line-height: 1.5; margin: 0 0 15px 0;">If you have any questions or need assistance, our support team is here to help.</p>
+                  <div style="color: #4f46e5; font-size: 14px; font-weight: 500;">
+                    📧 ravi@pydahsoft.in | 📞 +91-90104 62357
+                  </div>
+                </div>
+              </div>
+
+              <!-- Footer -->
+              <div style="background: #f9fafb; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
+                <div style="margin-bottom: 15px;">
+                  <img src="https://i.ibb.co/3gWr97t/pydahsoft-logo.jpg" alt="PydahSoft Logo" style="height: 32px; opacity: 0.8;">
+                </div>
+                <p style="color: #6b7280; font-size: 12px; line-height: 1.5; margin: 0;">
+                  © ${new Date().getFullYear()} PydahSoft. All rights reserved.<br>
+                  This email contains confidential information. Please do not forward or share.
+                </p>
+              </div>
+            </div>
+          </div>
+        `,
+        sender: { 
+          email: process.env.BREVO_SENDER_EMAIL || 'ravi@pydahsoft.in',
+          name: process.env.BREVO_SENDER_NAME || 'Pydah Pharmacy System'
+        }
+      };
+
+      await apiInstance.sendTransacEmail(emailData);
+      console.log('Welcome email sent to:', email);
+      
+    } catch (emailError) {
+      console.error('Failed to send welcome email:', emailError);
+      // Don't fail the registration if email fails
+    }
+
+    res.status(201).json({ 
+      msg: 'User registered successfully. Login credentials have been sent to the provided email address.',
+      user: {
+        userId: newUser.userId,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role
+      }
+    });
   } catch (error) {
     console.error(error.message);
     res.status(500).send('Server error');

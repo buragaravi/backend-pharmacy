@@ -16,4 +16,3 @@ const connectDB = async () => {
 };
 
 module.exports = connectDB;
-// This code connects to a MongoDB database using Mongoose. It exports a function that attempts to connect to the database and logs the connection status. If the connection fails, it logs the error and exits the process.

@@ -6,7 +6,7 @@ const { validateVendorInput } = require('../utils/validators');
 // @route   POST /api/vendors
 // @access  Private/Admin
 const createVendor = asyncHandler(async (req, res) => {
-  const { name, address, phone, website, description } = req.body;
+  const { name, email, address, phone, website, description } = req.body;
 
   // Validate input
   const { valid, errors } = validateVendorInput(req.body);
@@ -15,15 +15,23 @@ const createVendor = asyncHandler(async (req, res) => {
     throw new Error(Object.values(errors).join(', '));
   }
 
-  // Check if vendor already exists
-  const vendorExists = await Vendor.findOne({ name });
+  // Check if vendor already exists by email
+  const vendorExists = await Vendor.findOne({ email });
   if (vendorExists) {
     res.status(400);
-    throw new Error('Vendor already exists');
+    throw new Error('Vendor with this email already exists');
+  }
+
+  // Check if vendor already exists by name
+  const vendorNameExists = await Vendor.findOne({ name });
+  if (vendorNameExists) {
+    res.status(400);
+    throw new Error('Vendor with this name already exists');
   }
 
   const vendor = await Vendor.create({
     name,
+    email,
     address,
     phone,
     website,
@@ -34,6 +42,7 @@ const createVendor = asyncHandler(async (req, res) => {
     res.status(201).json({
       _id: vendor._id,
       name: vendor.name,
+      email: vendor.email,
       vendorCode: vendor.vendorCode,
       address: vendor.address,
       phone: vendor.phone,
@@ -105,6 +114,7 @@ const updateVendor = asyncHandler(async (req, res) => {
   }
   
   vendor.name = req.body.name || vendor.name;
+  vendor.email = req.body.email || vendor.email;
   vendor.address = req.body.address || vendor.address;
   vendor.phone = req.body.phone || vendor.phone;
   vendor.website = req.body.website || vendor.website;
@@ -115,6 +125,7 @@ const updateVendor = asyncHandler(async (req, res) => {
   res.json({
     _id: updatedVendor._id,
     name: updatedVendor.name,
+    email: updatedVendor.email,
     vendorCode: updatedVendor.vendorCode,
     address: updatedVendor.address,
     phone: updatedVendor.phone,

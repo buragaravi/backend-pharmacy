@@ -6,15 +6,47 @@ const vendorSchema = new mongoose.Schema({
     required: [true, 'Vendor name is required'],
     trim: true
   },
+  email: {
+    type: String,
+    required: [true, 'Email is required'],
+    unique: true,
+    trim: true,
+    lowercase: true,
+    validate: {
+      validator: function(v) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+      },
+      message: props => `${props.value} is not a valid email address!`
+    }
+  },
   address: {
-    street: String,
-    city: String,
-    state: String,
-    postalCode: String,
-    country: String
+    street: {
+      type: String,
+      trim: true
+    },
+    city: {
+      type: String,
+      required: [true, 'City is required'],
+      trim: true
+    },
+    state: {
+      type: String,
+      required: [true, 'State is required'],
+      trim: true
+    },
+    postalCode: {
+      type: String,
+      trim: true
+    },
+    country: {
+      type: String,
+      trim: true
+    }
   },
   phone: {
     type: String,
+    required: [true, 'Phone number is required'],
+    trim: true,
     validate: {
       validator: function(v) {
         return /^\+?[\d\s-]{10,}$/.test(v);
@@ -24,15 +56,17 @@ const vendorSchema = new mongoose.Schema({
   },
   website: {
     type: String,
+    trim: true,
     validate: {
       validator: function(v) {
-        return /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/.test(v);
+        return !v || /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/.test(v);
       },
       message: props => `${props.value} is not a valid website URL!`
     }
   },
   description: {
     type: String,
+    trim: true,
     maxlength: [500, 'Description cannot exceed 500 characters']
   },
   vendorCode: {
@@ -60,6 +94,6 @@ vendorSchema.pre('save', function(next) {
 });
 
 // Create text index for search functionality
-vendorSchema.index({ name: 'text', description: 'text' });
+vendorSchema.index({ name: 'text', email: 'text', description: 'text' });
 
 module.exports = mongoose.model('Vendor', vendorSchema);

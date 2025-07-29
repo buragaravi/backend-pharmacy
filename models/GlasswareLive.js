@@ -17,6 +17,7 @@ const glasswareLiveSchema = new mongoose.Schema({
     default: 'good'
   },
   expiryDate: { type: Date },
+  warranty: { type: Date },
   qrCodeData: String,      // The encoded data string
   qrCodeImage: String,     // Base64 encoded QR image
   batchId: String,         // Added for tracking

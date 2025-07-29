@@ -136,7 +136,8 @@ const createGlasswareInvoice = asyncHandler(async (req, res) => {
       thresholdValue: product.thresholdValue,
       quantity: item.quantity,
       totalPrice: item.totalPrice,
-      pricePerUnit: item.totalPrice / item.quantity
+      pricePerUnit: item.totalPrice / item.quantity,
+      warranty: item.warranty || null  // Include warranty (optional)
     };
   }));
   // Calculate total if not provided or invalid
@@ -169,7 +170,8 @@ const createGlasswareInvoice = asyncHandler(async (req, res) => {
       productId: item.productId,
       name: item.name,
       variant: item.variant,
-      quantity: item.quantity
+      quantity: item.quantity,
+      warranty: item.warranty  // Include warranty for glassware
     }));
     if (items.length > 0) {
       await addGlasswareToCentral({ body: { items } }, { status: () => ({ json: () => {} }) });
@@ -214,7 +216,8 @@ const createOthersInvoice = asyncHandler(async (req, res) => {
       thresholdValue: product.thresholdValue,
       quantity: item.quantity,
       totalPrice: item.totalPrice,
-      pricePerUnit: item.totalPrice / item.quantity
+      pricePerUnit: item.totalPrice / item.quantity,
+      warranty: item.warranty || null  // Include warranty (optional)
     };
   }));
   // Calculate total if not provided or invalid
@@ -304,7 +307,8 @@ const createEquipmentInvoice = asyncHandler(async (req, res) => {
       thresholdValue: product.thresholdValue,
       quantity: item.quantity,
       totalPrice: item.totalPrice,
-      pricePerUnit: item.totalPrice / item.quantity
+      pricePerUnit: item.totalPrice / item.quantity,
+      warranty: item.warranty || null  // Include warranty (optional)
     };
   }));
 
@@ -341,7 +345,8 @@ const createEquipmentInvoice = asyncHandler(async (req, res) => {
       productId: item.productId,
       name: item.name,
       variant: item.variant,
-      quantity: item.quantity
+      quantity: item.quantity,
+      warranty: item.warranty  // Include warranty for equipment
     }));
     if (items.length > 0) {
       // Call addEquipmentToCentral and capture QR codes

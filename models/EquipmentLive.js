@@ -13,7 +13,7 @@ const equipmentLiveSchema = new mongoose.Schema({
   status: { type: String, enum: ['Available', 'Issued', 'Assigned','Maintenance', 'Discarded'], default: 'Available' },
   location: { type: String, default: 'Central Store' },
   assignedTo: { type: String, default: null },
-  warranty: { type: String },
+  warranty: { type: Date },
   maintenanceCycle: { type: String },
   auditLogs: [{ type: mongoose.Schema.Types.ObjectId, ref: 'EquipmentAuditLog' }],
   transactions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'EquipmentTransaction' }],

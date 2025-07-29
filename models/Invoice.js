@@ -9,7 +9,8 @@ const invoiceLineItemSchema = new mongoose.Schema({
   quantity: { type: Number, required: true },
   totalPrice: { type: Number, required: true },
   pricePerUnit: { type: Number, required: true },
-  expiryDate: { type: Date }
+  expiryDate: { type: Date },
+  warranty: { type: Date }, // Optional warranty field
 });
 
 const invoiceSchema = new mongoose.Schema({

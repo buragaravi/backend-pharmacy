@@ -8,6 +8,7 @@ const authorizeRole = require('../middleware/roleMiddleware');
 router.get('/', productController.getAllProducts);
 router.get('/category/:category', productController.getProductsByCategory);
 router.get('/search', productController.searchProducts);
+router.get('/:id/inventory', productController.getProductInventoryDetails);
 
 // Protected stats route - Admin and Central Lab Admin only
 router.get('/stats', authenticate, authorizeRole(['admin', 'central_lab_admin']), productController.getProductStats);

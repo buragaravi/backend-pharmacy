@@ -320,6 +320,201 @@ const searchProducts = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, data: products });
 });
 
+// @desc    Get product inventory details
+// @route   GET /api/products/:id/inventory
+// @access  Public
+const getProductInventoryDetails = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  // Get the product details first
+  const product = await Product.findById(id);
+  if (!product) {
+    return res.status(404).json({
+      success: false,
+      message: 'Product not found'
+    });
+  }
+
+  let inventoryData = {};
+  let totalStock = 0;
+  const labDistribution = {};
+  let batchDetails = [];
+
+  try {
+    switch (product.category.toLowerCase()) {
+      case 'chemical':
+        // Get chemical inventory with batch details
+        const chemicalInventory = await ChemicalLive.find({ 
+          chemicalName: { $regex: product.name, $options: 'i' }
+        }).populate('chemicalMasterId');
+        
+        chemicalInventory.forEach(item => {
+          totalStock += item.quantity;
+          
+          // Lab distribution
+          if (labDistribution[item.labId]) {
+            labDistribution[item.labId].quantity += item.quantity;
+            labDistribution[item.labId].batches += 1;
+          } else {
+            labDistribution[item.labId] = {
+              quantity: item.quantity,
+              batches: 1
+            };
+          }
+          
+          // Batch details for chemicals
+          batchDetails.push({
+            batchId: item.chemicalMasterId?.batchId || 'N/A',
+            quantity: item.quantity,
+            unit: item.unit,
+            labId: item.labId,
+            expiryDate: item.expiryDate,
+            isAllocated: item.isAllocated,
+            createdAt: item.createdAt
+          });
+        });
+        break;
+
+      case 'equipment':
+        const equipmentInventory = await EquipmentLive.find({ productId: id });
+        
+        equipmentInventory.forEach(item => {
+          totalStock += 1; // Equipment is counted as individual items
+          
+          // Lab distribution for equipment
+          if (labDistribution[item.labId]) {
+            labDistribution[item.labId].quantity += 1;
+            labDistribution[item.labId].items += 1;
+          } else {
+            labDistribution[item.labId] = {
+              quantity: 1,
+              items: 1
+            };
+          }
+          
+          // Equipment details (warranty info instead of batch)
+          batchDetails.push({
+            itemId: item.itemId,
+            name: item.name,
+            variant: item.variant,
+            labId: item.labId,
+            status: item.status,
+            warranty: item.warranty,
+            location: item.location,
+            assignedTo: item.assignedTo,
+            createdAt: item.createdAt
+          });
+        });
+        break;
+
+      case 'glassware':
+        const glasswareInventory = await GlasswareLive.find({ productId: id });
+        
+        glasswareInventory.forEach(item => {
+          totalStock += item.quantity;
+          
+          // Lab distribution
+          if (labDistribution[item.labId]) {
+            labDistribution[item.labId].quantity += item.quantity;
+          } else {
+            labDistribution[item.labId] = {
+              quantity: item.quantity
+            };
+          }
+          
+          // Glassware details
+          batchDetails.push({
+            batchId: item.batchId || 'N/A',
+            quantity: item.quantity,
+            unit: item.unit,
+            labId: item.labId,
+            condition: item.condition,
+            warranty: item.warranty,
+            createdAt: item.createdAt
+          });
+        });
+        break;
+
+      case 'others':
+        const otherInventory = await OtherProductLive.find({ productId: id });
+        
+        otherInventory.forEach(item => {
+          totalStock += item.quantity;
+          
+          // Lab distribution  
+          if (labDistribution[item.labId]) {
+            labDistribution[item.labId].quantity += item.quantity;
+          } else {
+            labDistribution[item.labId] = {
+              quantity: item.quantity
+            };
+          }
+          
+          // Other product details
+          batchDetails.push({
+            batchId: item.batchId || 'N/A',
+            quantity: item.quantity,
+            unit: item.unit,
+            labId: item.labId,
+            vendor: item.vendor,
+            expiryDate: item.expiryDate,
+            createdAt: item.createdAt
+          });
+        });
+        break;
+
+      default:
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid product category'
+        });
+    }
+
+    // Calculate unique batches for chemicals, total items for others
+    let activeBatches;
+    if (product.category.toLowerCase() === 'chemical') {
+      // For chemicals, count unique batch IDs
+      const uniqueBatches = new Set(batchDetails.map(item => item.batchId).filter(id => id !== 'N/A'));
+      activeBatches = uniqueBatches.size;
+    } else {
+      // For equipment/glassware/others, count total items/entries
+      activeBatches = batchDetails.length;
+    }
+
+    inventoryData = {
+      product: {
+        id: product._id,
+        name: product.name,
+        category: product.category,
+        variant: product.variant,
+        unit: product.unit,
+        thresholdValue: product.thresholdValue
+      },
+      summary: {
+        totalStock,
+        activeBatches,
+        labsCount: Object.keys(labDistribution).length,
+        belowThreshold: totalStock < product.thresholdValue
+      },
+      labDistribution,
+      batchDetails: batchDetails.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    };
+
+    res.status(200).json({
+      success: true,
+      data: inventoryData
+    });
+
+  } catch (error) {
+    console.error('Error fetching inventory details:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching inventory details',
+      error: error.message
+    });
+  }
+});
+
 // @desc    Get product stats (counts by category)
 // @route   GET /api/products/stats
 // @access  Public
@@ -342,5 +537,6 @@ module.exports = {
   updateProduct,
   deleteProduct,
   searchProducts,
-  getProductStats
+  getProductStats,
+  getProductInventoryDetails
 };

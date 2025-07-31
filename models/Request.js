@@ -22,14 +22,18 @@ const requestSchema = new mongoose.Schema(
           type: String,
           required: true
         },
+        courseId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'Course',
+          required: true
+        },
+        batchId: {
+          type: mongoose.Schema.Types.ObjectId,
+          required: true // This will be the subdocument _id from course.batches
+        },
         date: {
           type: Date,
           required: true
-        },
-        session: {
-          type: String,
-          required: true,
-          enum: ['morning', 'afternoon']
         },
         chemicals: [
           {
@@ -113,6 +117,28 @@ const requestSchema = new mongoose.Schema(
       enum: ['pending', 'approved', 'rejected', 'fulfilled', 'partially_fulfilled'],
       default: 'pending',
     },
+    approvalHistory: [
+      {
+        action: {
+          type: String,
+          enum: ['approve', 'reject'],
+          required: true
+        },
+        approvedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          required: true
+        },
+        reason: {
+          type: String,
+          default: ''
+        },
+        date: {
+          type: Date,
+          default: Date.now
+        }
+      }
+    ],
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

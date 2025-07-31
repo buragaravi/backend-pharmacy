@@ -4,7 +4,7 @@ const Request = require('../models/Request');
 
 // Add new experiment
 exports.addExperiment = asyncHandler(async (req, res) => {
-  const { name, semester, subject, description, defaultChemicals } = req.body;
+  const { name, semester, subject, description, defaultChemicals, courseId, batchId } = req.body;
 
   const experiment = await Experiment.create({
     name,
@@ -12,6 +12,8 @@ exports.addExperiment = asyncHandler(async (req, res) => {
     subject,
     description,
     defaultChemicals,
+    courseId,
+    batchId,
     createdBy: req.userId ||req.user.id || req.user._id ||'admin'
   });
 

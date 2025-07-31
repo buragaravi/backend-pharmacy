@@ -4,7 +4,7 @@ const requestController = require('../controllers/requestController');
 const requestReturnController = require('../controllers/requestReturnController');
 const authenticate = require('../middleware/authMiddleware');
 const authorizeRole = require("../middleware/roleMiddleware");
-const { validateChemicalRequest, validateId, validateRequestApproval } = require('../middleware/validators');
+const { validateChemicalRequest, validateId, validateRequestApproval, validateAdminApproval } = require('../middleware/validators');
 
 // Experiment-related routes
 router.get('/experiments', 
@@ -55,6 +55,13 @@ router.delete('/:id',
 );
 
 // Request status management routes
+router.put('/:id/admin-approve', 
+  authenticate, 
+  authorizeRole(['admin']), 
+  validateAdminApproval,
+  requestController.adminApproveRequest
+);
+
 router.put('/approve', 
     authenticate, 
     requestController.approveRequest
@@ -105,6 +112,14 @@ router.get(
   authenticate,
   authorizeRole(['admin', 'central_lab_admin']),
   requestController.getUnapprovedRequests
+);
+
+// Route to get all approved requests ready for allocation
+router.get(
+  '/approved',
+  authenticate,
+  authorizeRole(['central_lab_admin', 'admin']),
+  requestController.getApprovedRequests
 );
 
 module.exports = router;

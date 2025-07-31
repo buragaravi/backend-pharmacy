@@ -55,7 +55,7 @@ exports.register = async (req, res) => {
     try {
       const emailData = {
         to: [{ email, name }],
-        subject: 'Welcome to Pydah Pharmacy - Your Account Details',
+        subject: 'Welcome to Jits Pharmacy - Your Account Details',
         htmlContent: `
           <div style="font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px; min-height: 100vh;">
             <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);">
@@ -122,7 +122,7 @@ exports.register = async (req, res) => {
 
                 <!-- Action Button -->
                 <div style="text-align: center; margin: 40px 0;">
-                  <a href="${process.env.FRONTEND_URL || 'https://pydah-pharmacy-labs.vercel.app'}/login" style="display: inline-block; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; text-decoration: none; padding: 16px 32px; border-radius: 50px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4); transition: all 0.3s ease;">
+                  <a href="${process.env.FRONTEND_URL || 'https://jits-pharmacy-labs.vercel.app'}/login" style="display: inline-block; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; text-decoration: none; padding: 16px 32px; border-radius: 50px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4); transition: all 0.3s ease;">
                     Access Your Account →
                   </a>
                 </div>
@@ -152,7 +152,7 @@ exports.register = async (req, res) => {
         `,
         sender: { 
           email: process.env.BREVO_SENDER_EMAIL || 'ravi@pydahsoft.in',
-          name: process.env.BREVO_SENDER_NAME || 'Pydah Pharmacy System'
+          name: process.env.BREVO_SENDER_NAME || 'Jits Pharmacy System'
         }
       };
 

@@ -29,8 +29,9 @@ const validateUnifiedRequest = [
   body('labId').isString().notEmpty(),
   body('experiments').isArray().notEmpty(),
   body('experiments.*.experimentName').isString().notEmpty(),
+  body('experiments.*.courseId').isString().notEmpty(),
+  body('experiments.*.batchId').isString().notEmpty(),
   body('experiments.*.date').isISO8601(),
-  body('experiments.*.session').isString().notEmpty(),
   // Chemicals
   body('experiments.*.chemicals').optional().isArray(),
   body('experiments.*.chemicals.*.chemicalName').optional().isString().notEmpty(),
@@ -153,6 +154,13 @@ const validateGlasswareCondition = [
   validate
 ];
 
+// Admin approval validation
+const validateAdminApproval = [
+  body('action').isIn(['approve', 'reject']).withMessage('Action must be either "approve" or "reject"'),
+  body('reason').optional().isString().withMessage('Reason must be a string if provided'),
+  validate
+];
+
 module.exports = {
   validateChemicalRequest,
   validateUnifiedRequest,
@@ -165,5 +173,6 @@ module.exports = {
   validateGlasswareTransaction,
   validateGlasswareAllocation,
   validateGlasswareTransfer,
-  validateGlasswareCondition
+  validateGlasswareCondition,
+  validateAdminApproval
 };

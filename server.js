@@ -66,7 +66,7 @@ app.use(express.json());
 // Swagger docs
 require('./swagger')(app);
 
-// Futuristic landing route
+// Professional landing route
 app.get('/', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -74,119 +74,293 @@ app.get('/', (req, res) => {
     <head>
       <meta charset="UTF-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>Chemical Stock Management</title>
+      <title>Pydah Pharmacy - Chemical Stock Management System</title>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
       <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body {
-          height: 100%;
-          background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-          font-family: 'Orbitron', sans-serif;
-          overflow: hidden;
-          cursor: none;
+        * { 
+          margin: 0; 
+          padding: 0; 
+          box-sizing: border-box; 
         }
-        canvas {
-          position: absolute;
+        
+        body {
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+          background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+          min-height: 100vh;
+          color: #2c3e50;
+          line-height: 1.6;
+        }
+        
+        .header {
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(10px);
+          box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+          padding: 1rem 0;
+          position: fixed;
+          width: 100%;
           top: 0;
-          left: 0;
-          z-index: 0;
-        }
-        .content {
-          position: relative;
-          z-index: 1;
-          display: flex;
-          height: 100%;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          text-align: center;
-          color: #fff;
-        }
-        h1 {
-          font-size: 3rem;
-          letter-spacing: 2px;
-          text-shadow: 0 0 20px #00f5ff;
-          transition: transform 0.3s ease-in-out;
-        }
-        h1:hover {
-          transform: scale(1.05);
-        }
-        .btn {
-          margin-top: 30px;
-          padding: 15px 30px;
-          background: #00f5ff;
-          color: #000;
-          border: none;
-          font-weight: bold;
-          font-size: 1rem;
-          border-radius: 10px;
-          box-shadow: 0 0 20px #00f5ff;
-          transition: all 0.3s ease;
-        }
-        .btn:hover {
-          background: #0ff;
-          transform: scale(1.1);
-          box-shadow: 0 0 30px #00f5ff;
-        }
-        .cursor {
-          position: absolute;
-          width: 30px;
-          height: 30px;
-          border: 2px solid #00f5ff;
-          border-radius: 50%;
-          pointer-events: none;
-          transition: transform 0.2s ease;
           z-index: 1000;
+        }
+        
+        .nav {
+          max-width: 1200px;
+          margin: 0 auto;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 0 2rem;
+        }
+        
+        .logo {
+          font-size: 1.5rem;
+          font-weight: 700;
+          color: #2c3e50;
+          text-decoration: none;
+        }
+        
+        .nav-links {
+          display: flex;
+          gap: 2rem;
+          list-style: none;
+        }
+        
+        .nav-links a {
+          color: #2c3e50;
+          text-decoration: none;
+          font-weight: 500;
+          transition: color 0.3s ease;
+        }
+        
+        .nav-links a:hover {
+          color: #3498db;
+        }
+        
+        .main-content {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 8rem 2rem 2rem;
+          text-align: center;
+        }
+        
+        .hero-section {
+          margin-bottom: 4rem;
+        }
+        
+        .hero-title {
+          font-size: 3.5rem;
+          font-weight: 700;
+          color: #2c3e50;
+          margin-bottom: 1rem;
+          line-height: 1.2;
+        }
+        
+        .hero-subtitle {
+          font-size: 1.25rem;
+          color: #7f8c8d;
+          margin-bottom: 2rem;
+          max-width: 600px;
+          margin-left: auto;
+          margin-right: auto;
+        }
+        
+        .cta-buttons {
+          display: flex;
+          gap: 1rem;
+          justify-content: center;
+          flex-wrap: wrap;
+        }
+        
+        .btn {
+          padding: 1rem 2rem;
+          border: none;
+          border-radius: 8px;
+          font-size: 1rem;
+          font-weight: 600;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          transition: all 0.3s ease;
+          cursor: pointer;
+        }
+        
+        .btn-primary {
+          background: #3498db;
+          color: white;
+          box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+        }
+        
+        .btn-primary:hover {
+          background: #2980b9;
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+        }
+        
+        .btn-secondary {
+          background: white;
+          color: #3498db;
+          border: 2px solid #3498db;
+        }
+        
+        .btn-secondary:hover {
+          background: #3498db;
+          color: white;
+          transform: translateY(-2px);
+        }
+        
+        .features {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+          gap: 2rem;
+          margin-top: 4rem;
+        }
+        
+        .feature-card {
+          background: rgba(255, 255, 255, 0.9);
+          padding: 2rem;
+          border-radius: 12px;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+          transition: transform 0.3s ease;
+        }
+        
+        .feature-card:hover {
+          transform: translateY(-5px);
+        }
+        
+        .feature-icon {
+          font-size: 3rem;
+          margin-bottom: 1rem;
+        }
+        
+        .feature-title {
+          font-size: 1.25rem;
+          font-weight: 600;
+          margin-bottom: 1rem;
+          color: #2c3e50;
+        }
+        
+        .feature-description {
+          color: #7f8c8d;
+        }
+        
+        .footer {
+          margin-top: 4rem;
+          padding: 2rem 0;
+          text-align: center;
+          color: #7f8c8d;
+          font-size: 0.9rem;
+        }
+        
+        @media (max-width: 768px) {
+          .hero-title {
+            font-size: 2.5rem;
+          }
+          
+          .nav-links {
+            display: none;
+          }
+          
+          .cta-buttons {
+            flex-direction: column;
+            align-items: center;
+          }
+          
+          .btn {
+            width: 100%;
+            max-width: 300px;
+          }
         }
       </style>
     </head>
     <body>
-      <div class="cursor" id="cursor"></div>
-      <div class="content">
-        <h1>🔬 Advanced Chemical Stock Management</h1>
-        <button class="btn">Explore System Features</button>
-      </div>
-      <canvas id="particles"></canvas>
-      <script>
-        // Custom cursor
-        const cursor = document.getElementById('cursor');
-        document.addEventListener('mousemove', e => {
-          cursor.style.left = e.pageX + 'px';
-          cursor.style.top = e.pageY + 'px';
-        });
-
-        // Animated particles
-        const canvas = document.getElementById('particles');
-        const ctx = canvas.getContext('2d');
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-
-        const particles = [];
-        for (let i = 0; i < 100; i++) {
-          particles.push({
-            x: Math.random() * canvas.width,
-            y: Math.random() * canvas.height,
-            r: Math.random() * 3 + 1,
-            dx: (Math.random() - 0.5) * 2,
-            dy: (Math.random() - 0.5) * 2,
-          });
-        }
-
-        function animate() {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          for (let p of particles) {
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-            ctx.fillStyle = '#00f5ff';
-            ctx.fill();
-            p.x += p.dx;
-            p.y += p.dy;
-            if (p.x < 0 || p.x > canvas.width) p.dx *= -1;
-            if (p.y < 0 || p.y > canvas.height) p.dy *= -1;
-          }
-          requestAnimationFrame(animate);
-        }
-        animate();
-      </script>
+      <header class="header">
+        <nav class="nav">
+          <a href="/" class="logo">Pydah Pharmacy</a>
+          <ul class="nav-links">
+            <li><a href="/api-docs">API Documentation</a></li>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#contact">Contact</a></li>
+          </ul>
+        </nav>
+      </header>
+      
+      <main class="main-content">
+        <section class="hero-section">
+          <h1 class="hero-title">Chemical Stock Management System</h1>
+          <p class="hero-subtitle">
+            Advanced laboratory inventory management solution for efficient tracking, 
+            monitoring, and optimization of chemical stocks and laboratory resources.
+          </p>
+          <div class="cta-buttons">
+            <a href="/api-docs" class="btn btn-primary">
+              📚 View API Documentation
+            </a>
+            <a href="#features" class="btn btn-secondary">
+              🔍 Explore Features
+            </a>
+          </div>
+        </section>
+        
+        <section class="features" id="features">
+          <div class="feature-card">
+            <div class="feature-icon">🧪</div>
+            <h3 class="feature-title">Chemical Inventory</h3>
+            <p class="feature-description">
+              Comprehensive tracking of chemical stocks with expiry monitoring, 
+              quantity management, and automated alerts.
+            </p>
+          </div>
+          
+          <div class="feature-card">
+            <div class="feature-icon">📊</div>
+            <h3 class="feature-title">Analytics & Reports</h3>
+            <p class="feature-description">
+              Real-time analytics, usage patterns, and detailed reporting 
+              for informed decision making.
+            </p>
+          </div>
+          
+          <div class="feature-card">
+            <div class="feature-icon">🔒</div>
+            <h3 class="feature-title">Secure Access</h3>
+            <p class="feature-description">
+              Role-based authentication and authorization ensuring 
+              secure access to sensitive laboratory data.
+            </p>
+          </div>
+          
+          <div class="feature-card">
+            <div class="feature-icon">📱</div>
+            <h3 class="feature-title">Modern Interface</h3>
+            <p class="feature-description">
+              Responsive design with intuitive user interface 
+              optimized for desktop and mobile devices.
+            </p>
+          </div>
+          
+          <div class="feature-card">
+            <div class="feature-icon">🔄</div>
+            <h3 class="feature-title">Transaction Management</h3>
+            <p class="feature-description">
+              Complete transaction tracking for transfers, requests, 
+              and inventory movements with audit trails.
+            </p>
+          </div>
+          
+          <div class="feature-card">
+            <div class="feature-icon">⚡</div>
+            <h3 class="feature-title">Real-time Updates</h3>
+            <p class="feature-description">
+              Live notifications and real-time synchronization 
+              across all connected devices and users.
+            </p>
+          </div>
+        </section>
+        
+        <footer class="footer" id="contact">
+          <p>&copy; 2025 Pydah Pharmacy. All rights reserved. | Chemical Stock Management API v1.0</p>
+        </footer>
+      </main>
     </body>
     </html>
   `);
@@ -203,6 +377,7 @@ app.use('/api/transfers', require('./routes/transferRoutes'));
 app.use('/api/transactions', require('./routes/transactionRoutes'));
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/experiments', require('./routes/experimentRoutes'));
+app.use('/api/courses', require('./routes/courseRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/products', productRoutes);
 app.use('/api/vendors', vendorRoutes);
@@ -218,7 +393,7 @@ app.use('/api/others', require('./routes/otherProductRoutes'));
 app.use(errorHandler);
 
 // Run expiry alerts
-checkForExpiringChemicals();
+// checkForExpiringChemicals();
 
 // Start server with keep-alive fixes
 const PORT = process.env.PORT || 7000;

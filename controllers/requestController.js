@@ -369,11 +369,16 @@ exports.createRequest = asyncHandler(async (req, res) => {
     return res.status(400).json({ errors: errors.array() });
   }
 
-  // Process experiments and suggested chemicals
+  // Process experiments and validate course/batch for each
   const processedExperiments = await Promise.all(experiments.map(async exp => {
     const experiment = await Experiment.findById(exp.experimentId);
     if (!experiment) {
       throw new Error(`Experiment not found: ${exp.experimentId}`);
+    }
+
+    // Validate course and batch for this experiment
+    if (!exp.courseId || !exp.batchId) {
+      throw new Error(`Course and batch are required for experiment: ${experiment.name}`);
     }
 
     // Chemicals (existing logic)
@@ -386,8 +391,9 @@ exports.createRequest = asyncHandler(async (req, res) => {
     return {
       experimentId: experiment._id,
       experimentName: experiment.name,
+      courseId: exp.courseId,
+      batchId: exp.batchId,
       date: exp.date,
-      session: exp.session,
       chemicals,
       equipment,
       glassware
@@ -513,6 +519,30 @@ exports.getAllRequests = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Get all approved requests ready for allocation
+// @route   GET /api/requests/approved
+// @access  Private (Central Lab Admin)
+exports.getApprovedRequests = asyncHandler(async (req, res) => {
+  try {
+    const requests = await Request.find({ status: 'approved' })
+      .populate('facultyId', 'name email')
+      .populate('labId', 'name')
+      .populate('experiments.experimentId', 'name subject')
+      .populate('experiments.courseId', 'courseName courseCode batches')
+      .populate('approvalHistory.approvedBy', 'name')
+      .sort({ 'approvalHistory.date': -1 }); // Sort by approval date (newest first)
+
+    res.status(200).json({
+      success: true,
+      count: requests.length,
+      data: requests,
+    });
+  } catch (err) {
+    console.error('Error fetching approved requests:', err);
+    res.status(500).json({ msg: 'Server error fetching approved requests' });
+  }
+});
+
 // @desc    Get all unapproved requests
 // @route   GET /api/requests/unapproved
 // @access  Private (Admin)
@@ -542,6 +572,7 @@ exports.getRequestsByFacultyId = asyncHandler(async (req, res) => {
     const facultyId = req.userId;
     const requests = await Request.find({ facultyId })
       .populate('experiments.experimentId', 'name subject')
+      .populate('experiments.courseId', 'courseName courseCode batches')
       .populate('experiments.chemicals.chemicalMasterId')
       .populate('experiments.chemicals.allocationHistory.allocatedBy', 'name')
       .sort({ createdAt: -1 });
@@ -562,6 +593,7 @@ exports.getRequestsByLabId = asyncHandler(async (req, res) => {
     const requests = await Request.find({ labId })
       .populate('facultyId', 'name email')
       .populate('experiments.experimentId', 'name')
+      .populate('experiments.courseId', 'courseName courseCode batches')
       .populate('experiments.chemicals.chemicalMasterId')
       .populate('experiments.chemicals.allocationHistory.allocatedBy', 'name')
       .sort({ createdAt: -1 });
@@ -941,11 +973,101 @@ exports.allocateEquipment = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Admin approval for requests (separate from allocation)
+// @route   PUT /api/requests/:id/admin-approve
+// @access  Private (Admin only)
+exports.adminApproveRequest = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { action, reason } = req.body; // action: 'approve' or 'reject'
+  const adminId = req.userId;
+
+  console.log('[adminApproveRequest] called with params:', req.params, 'body:', req.body);
+
+  if (!isValidObjectId(id)) {
+    return res.status(400).json({ message: 'Invalid request ID format' });
+  }
+
+  if (!['approve', 'reject'].includes(action)) {
+    return res.status(400).json({ message: 'Invalid action. Must be "approve" or "reject"' });
+  }
+
+  const request = await Request.findById(id)
+    .populate('facultyId', 'name email')
+    .populate('experiments.experimentId', 'name');
+  
+  if (!request) {
+    return res.status(404).json({ message: 'Request not found' });
+  }
+
+  // Only allow approval of pending requests
+  if (request.status !== 'pending') {
+    return res.status(400).json({ 
+      message: `Cannot ${action} request with status: ${request.status}. Only pending requests can be approved/rejected.` 
+    });
+  }
+
+  // Update request status
+  const newStatus = action === 'approve' ? 'approved' : 'rejected';
+  request.status = newStatus;
+  request.updatedBy = adminId;
+  
+  // Add approval/rejection details
+  if (!request.approvalHistory) {
+    request.approvalHistory = [];
+  }
+  
+  request.approvalHistory.push({
+    action,
+    approvedBy: adminId,
+    reason: reason || '',
+    date: new Date()
+  });
+
+  await request.save();
+
+  // Log transaction
+  await logTransaction({
+    requestId: id,
+    status: newStatus,
+    adminId,
+    action: `Admin ${action}`,
+    date: new Date(),
+    reason: reason || ''
+  });
+
+  // Notify faculty
+  const notification = new Notification({
+    userId: request.facultyId,
+    message: `Your request has been ${action}d by admin.${reason ? ` Reason: ${reason}` : ''}`,
+    type: 'request',
+    relatedRequest: request._id
+  });
+  await notification.save();
+
+  // If approved, notify central lab admin for allocation
+  if (action === 'approve') {
+    const centralLabAdmin = await User.findOne({ role: 'central_lab_admin' });
+    if (centralLabAdmin) {
+      const adminNotification = new Notification({
+        userId: centralLabAdmin._id,
+        message: `New approved request ready for allocation from ${request.facultyId.name}.`,
+        type: 'request',
+        relatedRequest: request._id
+      });
+      await adminNotification.save();
+    }
+  }
+
+  res.status(200).json({
+    message: `Request ${action}d successfully`,
+    request,
+    status: newStatus
+  });
+});
+
 // @desc    Unified allocation for chemicals, equipment, and glassware
 // @route   PUT /api/requests/:id/allocate-unified
-// @desc    Unified allocation for chemicals, equipment, and glassware
-// @route   PUT /api/requests/:id/allocate-unified
-// @access  Private (Admin/Lab Assistant)
+// @access  Private (Central Lab Admin/Lab Assistant)
 exports.allocateChemEquipGlass = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { equipment, glassware } = req.body; // Only equipment and glassware from body
@@ -959,6 +1081,21 @@ exports.allocateChemEquipGlass = asyncHandler(async (req, res) => {
   }
 
   const request = await Request.findById(id);
+  
+  if (!request) {
+    console.log('[allocateChemEquipGlass] Request not found:', id);
+    return res.status(404).json({ message: 'Request not found' });
+  }
+
+  // *** NEW: Status guard - only allow allocation of approved requests ***
+  if (request.status !== 'approved') {
+    console.log('[allocateChemEquipGlass] Request not approved for allocation:', request.status);
+    return res.status(400).json({ 
+      message: `Cannot allocate resources to request with status: ${request.status}. Only approved requests can be allocated.`,
+      currentStatus: request.status,
+      allowedStatus: 'approved'
+    });
+  }
   let experimentIds = [];
   if (request && request.experiments) {
     experimentIds = request.experiments.map(exp => exp.experimentId.toString());
@@ -1488,11 +1625,20 @@ function filterExperimentsForResponse(experiments) {
 exports.getRequestStats = asyncHandler(async (req, res) => {
   const total = await Request.countDocuments();
   const pending = await Request.countDocuments({ status: 'pending' });
+  const approved = await Request.countDocuments({ status: 'approved' });
   const partially_fulfilled = await Request.countDocuments({ status: 'partially_fulfilled' });
   const fulfilled = await Request.countDocuments({ status: 'fulfilled' });
   const rejected = await Request.countDocuments({ status: 'rejected' });
-  const active = pending + partially_fulfilled;
-  res.status(200).json({ total, active, pending, partially_fulfilled, fulfilled, rejected });
+  const active = pending + approved + partially_fulfilled;
+  res.status(200).json({ 
+    total, 
+    active, 
+    pending, 
+    approved, 
+    partially_fulfilled, 
+    fulfilled, 
+    rejected 
+  });
 });
 
 // @desc    Get all pending and partially fulfilled requests (all labs)

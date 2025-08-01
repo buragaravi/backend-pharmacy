@@ -35,6 +35,20 @@ const requestSchema = new mongoose.Schema(
           type: Date,
           required: true
         },
+        allocationStatus: {
+          canAllocate: { type: Boolean, default: true },
+          reason: { type: String, default: null },
+          reasonType: { 
+            type: String, 
+            enum: ['allocatable', 'date_expired_admin_only', 'date_expired_completely', 'fully_allocated', 'no_items'],
+            default: 'allocatable'
+          },
+          lastChecked: { type: Date, default: Date.now },
+          adminOverride: { type: Boolean, default: false }, // Allow admin to override date restrictions
+          overrideReason: { type: String, default: null },
+          overrideBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+          overrideAt: { type: Date }
+        },
         chemicals: [
           {
             chemicalName: {
@@ -54,6 +68,9 @@ const requestSchema = new mongoose.Schema(
               type: mongoose.Schema.Types.ObjectId,
               ref: 'ChemicalMaster'
             },
+            originalQuantity: {
+              type: Number // Store original quantity when first edited
+            },
             allocatedQuantity: {
               type: Number,
               default: 0
@@ -61,6 +78,18 @@ const requestSchema = new mongoose.Schema(
             isAllocated: {
               type: Boolean,
               default: false
+            },
+            isDisabled: {
+              type: Boolean,
+              default: false
+            },
+            disabledReason: {
+              type: String,
+              default: ''
+            },
+            wasDisabled: {
+              type: Boolean,
+              default: false // Track if item was previously disabled
             },
             allocationHistory: [
               {
@@ -81,7 +110,22 @@ const requestSchema = new mongoose.Schema(
             quantity: { type: Number, required: true, min: 1 },
             unit: { type: String },
             status: { type: String }, // e.g., 'Available', 'Issued', etc.
+            originalQuantity: {
+              type: Number // Store original quantity when first edited
+            },
             isAllocated: { type: Boolean, default: false },
+            isDisabled: {
+              type: Boolean,
+              default: false
+            },
+            disabledReason: {
+              type: String,
+              default: ''
+            },
+            wasDisabled: {
+              type: Boolean,
+              default: false // Track if item was previously disabled
+            },
             allocationHistory: [
               {
                 date: Date,
@@ -100,7 +144,22 @@ const requestSchema = new mongoose.Schema(
             variant: { type: String },
             quantity: { type: Number, required: true, min: 0 },
             unit: { type: String },
+            originalQuantity: {
+              type: Number // Store original quantity when first edited
+            },
             isAllocated: { type: Boolean, default: false },
+            isDisabled: {
+              type: Boolean,
+              default: false
+            },
+            disabledReason: {
+              type: String,
+              default: ''
+            },
+            wasDisabled: {
+              type: Boolean,
+              default: false // Track if item was previously disabled
+            },
             allocationHistory: [
               {
                 date: Date,
@@ -116,6 +175,15 @@ const requestSchema = new mongoose.Schema(
       type: String,
       enum: ['pending', 'approved', 'rejected', 'fulfilled', 'partially_fulfilled'],
       default: 'pending',
+    },
+    adminEdits: {
+      hasEdits: { type: Boolean, default: false },
+      lastEditedBy: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'User' 
+      },
+      lastEditedAt: { type: Date },
+      editSummary: { type: String } // Simple summary for display
     },
     approvalHistory: [
       {
@@ -156,6 +224,9 @@ const requestSchema = new mongoose.Schema(
 requestSchema.index({ facultyId: 1, status: 1 });
 requestSchema.index({ 'experiments.date': 1 });
 requestSchema.index({ 'experiments.experimentId': 1 });
+requestSchema.index({ 'experiments.allocationStatus.reasonType': 1 });
+requestSchema.index({ 'experiments.allocationStatus.canAllocate': 1 });
+requestSchema.index({ 'experiments.allocationStatus.adminOverride': 1 });
 
 const Request = mongoose.model('Request', requestSchema);
 

@@ -30,7 +30,7 @@ This document provides a comprehensive, file-by-file analysis of the backend con
 - **Purpose:** Manages all chemical-related operations, including adding chemicals, batch management, stock/out-of-stock handling, and transaction logging.
 - **Key Features:**
   - Helpers for batch ID generation, out-of-stock management, and reindexing.
-  - Add/update chemicals to Central Store , handling naming, expiry, and batch conflicts.
+  - Add/update chemicals to Central Store, handling naming, expiry, and batch conflicts.
   - FIFO allocation to labs with transaction safety.
   - Transaction logging for all chemical movements.
 
@@ -67,7 +67,7 @@ This document provides a comprehensive, file-by-file analysis of the backend con
 ## controllers/indentController.js
 - **Purpose:** Manages all indent (requisition/order) operations for chemicals, including creation, approval, allocation, comments, and status management.
 - **Key Features:**
-  - Indent creation and workflow for lab assistants and Central Store Admins.
+  - Indent creation and workflow for lab assistants and Central Store admins.
   - Comments, remarks, and batch updates.
   - Transactional allocation and approval logic.
 
@@ -116,7 +116,7 @@ This document provides a comprehensive, file-by-file analysis of the backend con
 ## controllers/quotationController.js
 - **Purpose:** Manages all quotation-related operations for chemicals, including creation, approval, allocation, comments, and status management.
 - **Key Features:**
-  - Quotation creation and workflow for lab assistants and Central Store Admins.
+  - Quotation creation and workflow for lab assistants and Central Store admins.
   - Comments, remarks, and batch updates.
   - Transactional allocation and approval logic.
 

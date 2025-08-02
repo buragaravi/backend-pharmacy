@@ -71,7 +71,7 @@ exports.addChemical = async (req, res) => {
 
     await newChemical.save();
 
-    // Create a corresponding entry in the live stock for tracking in the Central Store 
+    // Create a corresponding entry in the live stock for tracking in the Central Store
     const liveChemical = new ChemicalLive({
       chemicalId: newChemical._id,
       labId: 'central-store', // Central Store is assumed
@@ -89,7 +89,7 @@ exports.addChemical = async (req, res) => {
       labId: 'central-store',
       type: 'entry', // Transaction type for adding
       date: new Date(),
-      details: `Added ${quantity} units of ${name} to Central Store .`,
+      details: `Added ${quantity} units of ${name} to Central Store.`,
     });
 
     await transaction.save();
@@ -105,7 +105,7 @@ exports.allocateChemical = async (req, res) => {
   try {
     const { labId, chemicalId, quantity } = req.body;
 
-    // Find the chemical in the live stock (Central Store )
+    // Find the chemical in the live stock (Central Store)
     const liveChemical = await ChemicalLive.findOne({ chemicalId, labId: 'central-store' });
 
     if (!liveChemical) {

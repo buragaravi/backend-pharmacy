@@ -36,7 +36,7 @@ exports.createLabQuotation = asyncHandler(async (req, res) => {
   res.status(201).json({ msg: 'Lab quotation submitted', quotation });
 });
 
-// Central Store Admin: Create new draft quotation
+// Central Store ADMIN: Create new draft quotation
 exports.createDraftQuotation = asyncHandler(async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
@@ -63,7 +63,7 @@ exports.createDraftQuotation = asyncHandler(async (req, res) => {
   res.status(201).json({ msg: 'Draft quotation created', quotation });
 });
 
-// Central Store Admin: Add chemical to existing draft
+// Central Store ADMIN: Add chemical to existing draft
 exports.addChemicalToDraft = asyncHandler(async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
@@ -89,7 +89,7 @@ exports.addChemicalToDraft = asyncHandler(async (req, res) => {
   res.status(200).json({ msg: 'Chemical added to draft', draft });
 });
 
-// Central Store Admin: Submit draft quotation (status → pending)
+// Central Store ADMIN: Submit draft quotation (status → pending)
 exports.submitDraftToPending = asyncHandler(async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
@@ -108,7 +108,7 @@ exports.submitDraftToPending = asyncHandler(async (req, res) => {
   res.status(200).json({ msg: 'Draft submitted for approval', draft });
 });
 
-// Central Store Admin: Allocate chemicals from lab assistant's quotation
+// Central Store ADMIN: Allocate chemicals from lab assistant's quotation
 exports.allocateLabQuotation = asyncHandler(async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
@@ -483,7 +483,7 @@ exports.addChemicalRemarks = async (req, res) => {
 
     // Verify user role is central_store_admin
     if (req.user.role !== 'central_store_admin') {
-      return res.status(403).json({ message: 'Only Central Store Administrators can add remarks to chemicals' });
+      return res.status(403).json({ message: 'Only Central Store administrators can add remarks to chemicals' });
     }
 
     // Find the quotation
@@ -614,7 +614,7 @@ exports.updateAllChemicalRemarks = async (req, res) => {
 
     // Defensive: Check req.user exists and has role
     if (!req.user || req.user.role !== 'central_store_admin') {
-      return res.status(403).json({ message: 'Only Central Store Administrators can perform batch updates' });
+      return res.status(403).json({ message: 'Only Central Store administrators can perform batch updates' });
     }
 
     // Find the quotation

@@ -178,7 +178,7 @@ const createGlasswareInvoice = asyncHandler(async (req, res) => {
       console.log('Glassware added to Central Store successfully');
     }
   } catch (err) {
-    console.error('Failed to add glassware to Central Store :', err.message);
+    console.error('Failed to add glassware to Central Store:', err.message);
   }
   try {
     await incrementVoucherId({ body: { category: 'invoice' } }, { status: () => ({ json: () => {} }) });
@@ -257,7 +257,7 @@ const createOthersInvoice = asyncHandler(async (req, res) => {
       console.log('Other products added to Central Store successfully');
     }
   } catch (err) {
-    console.error('Failed to add other products to Central Store :', err.message);
+    console.error('Failed to add other products to Central Store:', err.message);
   }
   try {
     await incrementVoucherId({ body: { category: 'invoice' } }, { status: () => ({ json: () => {} }) });
@@ -359,7 +359,7 @@ const createEquipmentInvoice = asyncHandler(async (req, res) => {
       // qrCodes is now set
     }
   } catch (err) {
-    console.error('Failed to add equipment to Central Store :', err.message);
+    console.error('Failed to add equipment to Central Store:', err.message);
   }
   try {
     await incrementVoucherId({ body: { category: 'invoice' } }, { status: () => ({ json: () => {} }) });

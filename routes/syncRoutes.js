@@ -605,4 +605,99 @@ router.get('/status',
   })
 );
 
+// @desc    Migrate all inventory items from 'central-lab' to 'central-store'
+// @route   POST /api/sync/migrate-central-lab-to-store
+// @access  Private (Admin only)
+router.post('/migrate-central-lab-to-store', 
+  authenticate, 
+  authorizeRole(['admin']), 
+  asyncHandler(async (req, res) => {
+    try {
+      const ChemicalLive = require('../models/ChemicalLive');
+      const EquipmentLive = require('../models/EquipmentLive');
+      const GlasswareLive = require('../models/GlasswareLive');
+      const OtherProductLive = require('../models/OtherProductLive');
+      
+      console.log(`🔄 Central-lab to central-store migration triggered by user: ${req.user.email}`);
+      
+      const inventoryTypes = [
+        { model: ChemicalLive, name: 'ChemicalLive' },
+        { model: EquipmentLive, name: 'EquipmentLive' },
+        { model: GlasswareLive, name: 'GlasswareLive' },
+        { model: OtherProductLive, name: 'OtherProductLive' }
+      ];
+
+      let totalUpdated = 0;
+      const results = {};
+
+      for (const inventoryType of inventoryTypes) {
+        try {
+          // Find documents with 'central-lab'
+          const documentsToUpdate = await inventoryType.model.find({ labId: 'central-lab' });
+          
+          if (documentsToUpdate.length > 0) {
+            // Update documents
+            const updateResult = await inventoryType.model.updateMany(
+              { labId: 'central-lab' },
+              { $set: { labId: 'central-store' } }
+            );
+
+            results[inventoryType.name] = {
+              found: documentsToUpdate.length,
+              matched: updateResult.matchedCount,
+              modified: updateResult.modifiedCount
+            };
+            
+            totalUpdated += updateResult.modifiedCount;
+          } else {
+            results[inventoryType.name] = {
+              found: 0,
+              matched: 0,
+              modified: 0
+            };
+          }
+        } catch (error) {
+          console.error(`Error processing ${inventoryType.name}:`, error.message);
+          results[inventoryType.name] = {
+            error: error.message
+          };
+        }
+      }
+
+      // Final verification
+      const verification = {};
+      for (const inventoryType of inventoryTypes) {
+        try {
+          const centralLabCount = await inventoryType.model.countDocuments({ labId: 'central-lab' });
+          const centralStoreCount = await inventoryType.model.countDocuments({ labId: 'central-store' });
+          verification[inventoryType.name] = {
+            remainingCentralLab: centralLabCount,
+            totalCentralStore: centralStoreCount
+          };
+        } catch (error) {
+          verification[inventoryType.name] = { error: error.message };
+        }
+      }
+
+      res.status(200).json({
+        success: true,
+        message: `Migration completed. Updated ${totalUpdated} documents total.`,
+        data: {
+          totalUpdated,
+          results,
+          verification
+        }
+      });
+      
+    } catch (error) {
+      console.error('❌ Central-lab migration API error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Migration failed',
+        error: error.message
+      });
+    }
+  })
+);
+
 module.exports = router;

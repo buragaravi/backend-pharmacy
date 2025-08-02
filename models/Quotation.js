@@ -12,7 +12,7 @@ const quotationSchema = new mongoose.Schema({
     required: true,
   },
   labId: { type: String }, // Required for lab assistant quotes
-  vendorName: { type: String }, // Only for Central Store Admin
+  vendorName: { type: String }, // Only for Central Store admin
   chemicals: [
     {
       chemicalName: { type: String, required: true },

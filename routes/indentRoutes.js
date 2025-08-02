@@ -27,7 +27,7 @@ router.get(
   indentController.getLabAssistantIndents
 );
 
-// Central Store Admin ROUTES
+// Central Store ADMIN ROUTES
 router.post(
   '/central/draft',
   authenticate,

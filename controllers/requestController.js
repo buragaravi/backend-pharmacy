@@ -1098,7 +1098,7 @@ exports.adminApproveRequest = asyncHandler(async (req, res) => {
   });
   await notification.save();
 
-  // If approved, notify Central Store Admin for allocation
+  // If approved, notify Central Store admin for allocation
   if (action === 'approve') {
     const centralLabAdmin = await User.findOne({ role: 'central_store_admin' });
     if (centralLabAdmin) {
@@ -1229,7 +1229,7 @@ exports.allocateChemEquipGlass = asyncHandler(async (req, res) => {
       console.error(`[allocateChemicalWithFallback] Error allocating from lab ${labId}:`, err);
     }
 
-    // 2. If still need more, try Central Store 
+    // 2. If still need more, try Central Store
     if (remainingQty > 0) {
       try {
         const centralStock = await ChemicalLive.findOne({ 
@@ -1253,7 +1253,7 @@ exports.allocateChemEquipGlass = asyncHandler(async (req, res) => {
               fromLabId: 'central-store',
               quantity: allocateFromCentral,
               stockId: updatedCentralStock._id,
-              sourceName: 'Central Store '
+              sourceName: 'Central Store'
             });
             remainingQty -= allocateFromCentral;
             totalAllocated += allocateFromCentral;

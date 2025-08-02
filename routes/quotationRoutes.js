@@ -27,7 +27,7 @@ router.get(
   quotationController.getLabAssistantQuotations
 );
 
-// Central Store Admin ROUTES
+// Central Store ADMIN ROUTES
 router.post(
   '/central/draft',
   authenticate,

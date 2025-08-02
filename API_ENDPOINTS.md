@@ -274,7 +274,7 @@ _All routes require authentication (JWT). Role-based restrictions as noted._
 
 ### Expired Chemicals Management
 - **GET** `/api/chemicals/expired`
-- **Purpose:** List expired chemicals in Central Store .
+- **Purpose:** List expired chemicals in Central Store.
 - **Response:** Array of expired chemicals.
 - **Auth:** Central Store Admin
 

@@ -42,7 +42,7 @@ router.get('/lab/:labId',
     const userLabId = req.user.labId;
     const requestedLabId = req.params.labId;
     
-    // Admin and Central Store Admin can access all labs
+    // Admin and Central Store admin can access all labs
     if (['admin', 'central_store_admin'].includes(userRole)) {
       return next();
     }

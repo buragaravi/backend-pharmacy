@@ -15,13 +15,13 @@ router.get('/all', authenticate, authorizeRoles('central_store_admin', 'lab_assi
 router.get('/lab/:labId', authenticate, authorizeRoles('lab_assistant'), inventoryController.getInventoryByLab);
 
 
-// Add a new chemical to the inventory (for Central Store Admin only)
+// Add a new chemical to the inventory (for Central Store admin only)
 router.post('/add', authenticate, authorizeRoles('central_store_admin'), inventoryController.addChemical);
 
-// Allocate chemicals to a lab and update live stock (for Central Store Admin and lab assistant)
+// Allocate chemicals to a lab and update live stock (for Central Store admin and lab assistant)
 router.post('/allocate', authenticate, authorizeRoles('central_store_admin', 'lab_assistant'), inventoryController.allocateChemical);
 
-// Get all live stock details (for Central Store Admin and lab assistant)
+// Get all live stock details (for Central Store admin and lab assistant)
 router.get('/live-stock', authenticate, authorizeRoles('central_store_admin', 'lab_assistant'), inventoryController.getLiveStock);
 
 module.exports = router;

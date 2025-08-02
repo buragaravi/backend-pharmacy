@@ -8,8 +8,20 @@ const equipmentLiveSchema = new mongoose.Schema({
   labId: {
     type: String,
     required: true,
-    enum: ['LAB01', 'LAB02', 'LAB03', 'LAB04', 'LAB05', 'LAB06', 'LAB07', 'LAB08', 'central-store'],
+    validate: {
+      validator: async function(value) {
+        // Always allow central-store
+        if (value === 'central-store') return true;
+        
+        // For other labs, check if they exist and are active
+        const Lab = require('./Lab');
+        const lab = await Lab.findOne({ labId: value, isActive: true });
+        return !!lab;
+      },
+      message: 'Invalid lab ID or lab is inactive'
+    }
   },
+  labName: { type: String }, // Denormalized lab name for performance (auto-synced)
   status: { type: String, enum: ['Available', 'Issued', 'Assigned','Maintenance', 'Discarded'], default: 'Available' },
   location: { type: String, default: 'Central Store' },
   assignedTo: { type: String, default: null },
@@ -32,6 +44,26 @@ const equipmentLiveSchema = new mongoose.Schema({
 
 equipmentLiveSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
+  next();
+});
+
+// Pre-save middleware to auto-populate labName
+equipmentLiveSchema.pre('save', async function(next) {
+  if (this.isModified('labId') || !this.labName) {
+    try {
+      if (this.labId === 'central-store') {
+        this.labName = 'Central Store';
+      } else {
+        const Lab = require('./Lab');
+        const lab = await Lab.findOne({ labId: this.labId, isActive: true });
+        if (lab) {
+          this.labName = lab.labName;
+        }
+      }
+    } catch (error) {
+      console.error('Error auto-populating labName:', error);
+    }
+  }
   next();
 });
 

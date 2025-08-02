@@ -5,6 +5,7 @@ const requestReturnController = require('../controllers/requestReturnController'
 const authenticate = require('../middleware/authMiddleware');
 const authorizeRole = require("../middleware/roleMiddleware");
 const { validateChemicalRequest, validateId, validateRequestApproval, validateAdminApproval } = require('../middleware/validators');
+const { validateExperimentDate, validateEditPermissions, updateAllocationStatus } = require('../middleware/dateValidation');
 
 // Experiment-related routes
 router.get('/experiments', 
@@ -25,27 +26,27 @@ router.post('/',
   requestController.createRequest
 );
 
-router.get('/', 
+router.get('/',  
   authenticate, 
   authorizeRole(['lab_assistant', 'central_lab_admin','admin']), 
   requestController.getAllRequests
 );
-
+ 
 router.get('/faculty', 
   authenticate, 
   authorizeRole(['faculty']), 
   requestController.getRequestsByFacultyId
-);
+);     
 
 router.get('/lab/:labId', 
   authenticate, 
   authorizeRole(['lab_assistant', 'central_lab_admin','admin']), 
-  requestController.getRequestsByLabId
+  requestController.getRequestsByLabId    
 );
 
 router.get('/:id', 
   authenticate, 
-  requestController.getRequestById
+  requestController.getRequestById    
 );
 
 router.delete('/:id', 
@@ -62,6 +63,44 @@ router.put('/:id/admin-approve',
   requestController.adminApproveRequest
 );
 
+// Admin edit route
+router.put('/:id/admin-edit', 
+  authenticate, 
+  authorizeRole(['admin']), 
+  validateEditPermissions,
+  requestController.adminEditRequest
+);
+
+// NEW: Date-aware allocation status routes
+router.get('/:id/allocation-status',
+  authenticate,
+  authorizeRole(['lab_assistant', 'central_lab_admin', 'admin']),
+  updateAllocationStatus,
+  requestController.getRequestAllocationStatus
+);
+
+// NEW: Admin override for experiment dates
+router.post('/:id/experiments/:experimentId/admin-override',
+  authenticate,
+  authorizeRole(['admin']),
+  requestController.setAdminOverride
+);
+
+// NEW: Get item edit permissions
+router.get('/:id/edit-permissions',
+  authenticate,
+  authorizeRole(['admin']),
+  requestController.getItemEditPermissions
+);
+
+// NEW: Update item disabled status
+router.put('/:id/items/disable-status',
+  authenticate,
+  authorizeRole(['admin']),
+  validateEditPermissions,
+  requestController.updateItemDisabledStatus
+);
+
 router.put('/approve', 
     authenticate, 
     requestController.approveRequest
@@ -75,13 +114,17 @@ router.put('/:id/reject',
 
 router.put('/:id/allocate', 
   authenticate, 
-  authorizeRole(['lab_assistant', 'central_lab_admin','admin']), 
+  authorizeRole(['lab_assistant', 'central_lab_admin', 'admin']), 
+  validateExperimentDate,
+  updateAllocationStatus,
   requestController.allocateChemicals
 );
 
 router.put('/:id/allocate-unified', 
   authenticate, 
   authorizeRole(['lab_assistant', 'central_lab_admin', 'admin']), 
+  validateExperimentDate,
+  updateAllocationStatus,
   requestController.allocateChemEquipGlass
 );
 

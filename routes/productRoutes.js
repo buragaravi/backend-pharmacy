@@ -3,6 +3,7 @@ const router = express.Router();
 const productController = require('../controllers/productController');
 const authenticate = require('../middleware/authMiddleware');
 const authorizeRole = require('../middleware/roleMiddleware');
+const { handleProductUpdate } = require('../middleware/productSyncMiddleware');
 
 // Public routes - No authentication required
 router.get('/', productController.getAllProducts);
@@ -39,9 +40,11 @@ router.post('/bulk',
   productController.createBulkProducts
 );
 
+// Add sync middleware to update route
 router.put('/:id', 
   authenticate, 
   authorizeRole(['admin', 'central_lab_admin']), 
+  handleProductUpdate, // This will trigger chemical sync after successful update
   productController.updateProduct
 );
 

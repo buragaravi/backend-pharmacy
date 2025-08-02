@@ -12,17 +12,17 @@ router.get('/:id', vendorController.getVendorById);
 // Protected admin routes
 router.post('/', 
   authenticate, 
-  authorizeRole(['admin', 'central_lab_admin']), 
+  authorizeRole(['admin', 'central_store_admin']), 
   vendorController.createVendor
 );
 router.put('/:id', 
   authenticate, 
-  authorizeRole(['admin', 'central_lab_admin']), 
+  authorizeRole(['admin', 'central_store_admin']), 
   vendorController.updateVendor
 );
 router.delete('/:id', 
   authenticate, 
-  authorizeRole(['admin', 'central_lab_admin']), 
+  authorizeRole(['admin', 'central_store_admin']), 
   vendorController.deleteVendor
 );
 

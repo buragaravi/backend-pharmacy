@@ -575,7 +575,7 @@ exports.getAllRequests = asyncHandler(async (req, res) => {
 
 // @desc    Get all approved requests ready for allocation
 // @route   GET /api/requests/approved
-// @access  Private (Central Lab Admin)
+// @access  Private (Central Store Admin)
 exports.getApprovedRequests = asyncHandler(async (req, res) => {
   try {
     const requests = await Request.find({ status: 'approved' })
@@ -993,7 +993,7 @@ exports.allocateEquipment = asyncHandler(async (req, res) => {
         action: 'asign',
         performedBy: adminId,
         performedByRole: 'lab_assistant',
-        fromLocation: labId || "central-lab",
+        fromLocation: labId || "central-store",
         toLocation: 'faculty',
         assignedTo: 'faculty',
         remarks: 'Allocated to faculty (request allocation)',
@@ -1098,9 +1098,9 @@ exports.adminApproveRequest = asyncHandler(async (req, res) => {
   });
   await notification.save();
 
-  // If approved, notify central lab admin for allocation
+  // If approved, notify Central Store Admin for allocation
   if (action === 'approve') {
-    const centralLabAdmin = await User.findOne({ role: 'central_lab_admin' });
+    const centralLabAdmin = await User.findOne({ role: 'central_store_admin' });
     if (centralLabAdmin) {
       const adminNotification = new Notification({
         userId: centralLabAdmin._id,
@@ -1121,7 +1121,7 @@ exports.adminApproveRequest = asyncHandler(async (req, res) => {
 
 // @desc    Unified allocation for chemicals, equipment, and glassware
 // @route   PUT /api/requests/:id/allocate-unified
-// @access  Private (Central Lab Admin/Lab Assistant)
+// @access  Private (Central Store Admin/Lab Assistant)
 exports.allocateChemEquipGlass = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { equipment, glassware } = req.body; // Only equipment and glassware from body
@@ -1234,7 +1234,7 @@ exports.allocateChemEquipGlass = asyncHandler(async (req, res) => {
       try {
         const centralStock = await ChemicalLive.findOne({ 
           chemicalName, 
-          labId: 'central-lab' 
+          labId: 'central-store' 
         }).session(session);
         
         if (centralStock && centralStock.quantity > 0) {
@@ -1250,18 +1250,18 @@ exports.allocateChemEquipGlass = asyncHandler(async (req, res) => {
           if (updatedCentralStock) {
             allocations.push({
               source: 'central',
-              fromLabId: 'central-lab',
+              fromLabId: 'central-store',
               quantity: allocateFromCentral,
               stockId: updatedCentralStock._id,
               sourceName: 'Central Lab'
             });
             remainingQty -= allocateFromCentral;
             totalAllocated += allocateFromCentral;
-            console.log(`[allocateChemicalWithFallback] Allocated ${allocateFromCentral} from central-lab, remaining: ${remainingQty}`);
+            console.log(`[allocateChemicalWithFallback] Allocated ${allocateFromCentral} from central-store, remaining: ${remainingQty}`);
           }
         }
       } catch (err) {
-        console.error(`[allocateChemicalWithFallback] Error allocating from central-lab:`, err);
+        console.error(`[allocateChemicalWithFallback] Error allocating from central-store:`, err);
       }
     }
 
@@ -1585,7 +1585,7 @@ exports.allocateChemEquipGlass = asyncHandler(async (req, res) => {
             item.labId = labId; // Set labId for tracking
             item.status = 'Assigned';
             item.assignedTo = `${faculty.name}` || 'faculty';
-            item.location =  labId || 'central-lab'; // Use labId if available, otherwise default to 'central-lab'
+            item.location =  labId || 'central-store'; // Use labId if available, otherwise default to 'central-store'
             item.allocatedTo =  ` At ${faculty.name}` || 'faculty'; // Use facultyId if available, otherwise default to 'faculty'
             item.lastUpdatedBy = adminId;
             item.lastUpdatedAt = new Date();
@@ -1714,7 +1714,7 @@ function filterExperimentsForResponse(experiments) {
 
 // @desc    Get request stats (counts by status)
 // @route   GET /api/requests/stats
-// @access  Private (admin, central_lab_admin)
+// @access  Private (admin, central_store_admin)
 exports.getRequestStats = asyncHandler(async (req, res) => {
   const total = await Request.countDocuments();
   const pending = await Request.countDocuments({ status: 'pending' });
@@ -1736,7 +1736,7 @@ exports.getRequestStats = asyncHandler(async (req, res) => {
 
 // @desc    Get all pending and partially fulfilled requests (all labs)
 // @route   GET /api/requests/pending-overview
-// @access  Private (admin, central_lab_admin)
+// @access  Private (admin, central_store_admin)
 exports.getPendingOverviewRequests = asyncHandler(async (req, res) => {
   const requests = await Request.find({ status: { $in: ['pending', 'partially_fulfilled'] } })
     .populate('facultyId', 'name email')

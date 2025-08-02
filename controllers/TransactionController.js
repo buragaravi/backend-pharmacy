@@ -62,7 +62,7 @@ exports.createTransaction = asyncHandler(async (req, res) => {
   res.status(201).json({ msg: 'Transaction processed and live inventory updated' });
 });
 
-// Get all transactions (accessible by central lab admins)
+// Get all transactions (accessible by Central Store Admins)
 exports.getAllTransactions = asyncHandler(async (req, res) => {
   try {
     const transactions = await Transaction.find()

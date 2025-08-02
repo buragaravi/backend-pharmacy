@@ -28,7 +28,7 @@ router.post('/',
 
 router.get('/',  
   authenticate, 
-  authorizeRole(['lab_assistant', 'central_lab_admin','admin']), 
+  authorizeRole(['lab_assistant', 'central_store_admin','admin']), 
   requestController.getAllRequests
 );
  
@@ -40,7 +40,7 @@ router.get('/faculty',
 
 router.get('/lab/:labId', 
   authenticate, 
-  authorizeRole(['lab_assistant', 'central_lab_admin','admin']), 
+  authorizeRole(['lab_assistant', 'central_store_admin','admin']), 
   requestController.getRequestsByLabId    
 );
 
@@ -74,7 +74,7 @@ router.put('/:id/admin-edit',
 // NEW: Date-aware allocation status routes
 router.get('/:id/allocation-status',
   authenticate,
-  authorizeRole(['lab_assistant', 'central_lab_admin', 'admin']),
+  authorizeRole(['lab_assistant', 'central_store_admin', 'admin']),
   updateAllocationStatus,
   requestController.getRequestAllocationStatus
 );
@@ -108,13 +108,13 @@ router.put('/approve',
 
 router.put('/:id/reject', 
   authenticate, 
-  authorizeRole(['lab_assistant', 'central_lab_admin','admin']), 
+  authorizeRole(['lab_assistant', 'central_store_admin','admin']), 
   requestController.rejectRequest
 );
 
 router.put('/:id/allocate', 
   authenticate, 
-  authorizeRole(['lab_assistant', 'central_lab_admin', 'admin']), 
+  authorizeRole(['lab_assistant', 'central_store_admin', 'admin']), 
   validateExperimentDate,
   updateAllocationStatus,
   requestController.allocateChemicals
@@ -122,7 +122,7 @@ router.put('/:id/allocate',
 
 router.put('/:id/allocate-unified', 
   authenticate, 
-  authorizeRole(['lab_assistant', 'central_lab_admin', 'admin']), 
+  authorizeRole(['lab_assistant', 'central_store_admin', 'admin']), 
   validateExperimentDate,
   updateAllocationStatus,
   requestController.allocateChemEquipGlass
@@ -130,13 +130,13 @@ router.put('/:id/allocate-unified',
 
 router.put('/:id/complete', 
   authenticate, 
-  authorizeRole(['lab_assistant', 'central_lab_admin','admin']), 
+  authorizeRole(['lab_assistant', 'central_store_admin','admin']), 
   requestController.completeRequest
 );
 
 router.post('/fulfill-remaining', 
   authenticate, 
-  authorizeRole(['lab_assistant', 'central_lab_admin', 'admin']), 
+  authorizeRole(['lab_assistant', 'central_store_admin', 'admin']), 
   requestController.fulfillRemaining
 );
 
@@ -145,15 +145,15 @@ router.put('/:id/return-unified',
   requestReturnController.returnChemEquipGlass
 );
 
-router.get('/stats', authenticate, authorizeRole(['admin', 'central_lab_admin']), requestController.getRequestStats);
-router.get('/pending-overview', authenticate, authorizeRole(['admin', 'central_lab_admin']), requestController.getPendingOverviewRequests);
-router.get('/all', authenticate, authorizeRole(['admin', 'central_lab_admin']), requestController.getAllRequestsForDashboard);
+router.get('/stats', authenticate, authorizeRole(['admin', 'central_store_admin']), requestController.getRequestStats);
+router.get('/pending-overview', authenticate, authorizeRole(['admin', 'central_store_admin']), requestController.getPendingOverviewRequests);
+router.get('/all', authenticate, authorizeRole(['admin', 'central_store_admin']), requestController.getAllRequestsForDashboard);
 
 // Route to get all unapproved requests
 router.get(
   '/unapproved',
   authenticate,
-  authorizeRole(['admin', 'central_lab_admin']),
+  authorizeRole(['admin', 'central_store_admin']),
   requestController.getUnapprovedRequests
 );
 
@@ -161,7 +161,7 @@ router.get(
 router.get(
   '/approved',
   authenticate,
-  authorizeRole(['central_lab_admin', 'admin']),
+  authorizeRole(['central_store_admin', 'admin']),
   requestController.getApprovedRequests
 );
 

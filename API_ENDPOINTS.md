@@ -109,7 +109,7 @@ This document describes all backend API endpoints for **Authentication**, **Equi
   ```json
   { "message": "Equipment items registered successfully", "batchId": "...", "items": [ ... ], "qrCodes": [ { "itemId": "...", "qrCodeImage": "base64..." } ] }
   ```
-- **Auth:** Admin or Central Lab Admin (JWT required)
+- **Auth:** Admin or Central Store Admin (JWT required)
 
 ### Allocate Equipment to Lab
 - **POST** `/api/equipment/allocate/lab`
@@ -122,7 +122,7 @@ This document describes all backend API endpoints for **Authentication**, **Equi
   ```json
   { "message": "Equipment allocated to lab", "allocated": 1 }
   ```
-- **Auth:** Admin or Central Lab Admin (JWT required)
+- **Auth:** Admin or Central Store Admin (JWT required)
 
 ### Allocate Equipment to Faculty
 - **POST** `/api/equipment/allocate/faculty`
@@ -145,7 +145,7 @@ This document describes all backend API endpoints for **Authentication**, **Equi
 
 ### Get Central Available Equipment
 - **GET** `/api/equipment/central/available`
-- **Purpose:** List available equipment in central lab for allocation.
+- **Purpose:** List available equipment in Central Store for allocation.
 - **Response:** Array of available equipment.
 - **Auth:** Any authenticated user
 
@@ -227,7 +227,7 @@ _All routes require authentication (JWT). Role-based restrictions as noted._
   ```json
   { "message": "Chemicals added/updated successfully", "batchId": "...", "chemicals": [ ... ] }
   ```
-- **Auth:** Admin or Central Lab Admin
+- **Auth:** Admin or Central Store Admin
 
 ### Allocate Chemicals to Lab
 - **POST** `/api/chemicals/allocate`
@@ -240,25 +240,25 @@ _All routes require authentication (JWT). Role-based restrictions as noted._
   ```json
   { "message": "All allocations completed successfully", "results": [ { "chemicalName": "...", "status": "success", "allocatedQuantity": 1, "expiryDate": "...", "chemicalMasterId": "..." } ] }
   ```
-- **Auth:** Central Lab Admin
+- **Auth:** Central Store Admin
 
 ### Get Central Master Chemicals
 - **GET** `/api/chemicals/master`
 - **Purpose:** List all master chemicals in central.
 - **Response:** Array of master chemicals.
-- **Auth:** Admin or Central Lab Admin
+- **Auth:** Admin or Central Store Admin
 
 ### Get Lab Master Chemicals
 - **GET** `/api/chemicals/master/:labId`
 - **Purpose:** List all master chemicals for a specific lab.
 - **Response:** Array of master chemicals.
-- **Auth:** Admin, Central Lab Admin, or Lab Assistant
+- **Auth:** Admin, Central Store Admin, or Lab Assistant
 
 ### Get Live Stock by Lab
 - **GET** `/api/chemicals/live/:labId`
 - **Purpose:** Get live chemical stock for a lab.
 - **Response:** Array of live chemical stock.
-- **Auth:** Admin, Central Lab Admin, or Lab Assistant
+- **Auth:** Admin, Central Store Admin, or Lab Assistant
 
 ### Get Central Live Stock (Simplified)
 - **GET** `/api/chemicals/central/available`
@@ -270,13 +270,13 @@ _All routes require authentication (JWT). Role-based restrictions as noted._
 - **GET** `/api/chemicals/distribution`
 - **Purpose:** Get chemical distribution across labs.
 - **Response:** Array of distribution objects.
-- **Auth:** Admin, Central Lab Admin, or Lab Assistant
+- **Auth:** Admin, Central Store Admin, or Lab Assistant
 
 ### Expired Chemicals Management
 - **GET** `/api/chemicals/expired`
 - **Purpose:** List expired chemicals in central lab.
 - **Response:** Array of expired chemicals.
-- **Auth:** Central Lab Admin
+- **Auth:** Central Store Admin
 
 - **POST** `/api/chemicals/expired/action`
 - **Purpose:** Process admin action for expired chemical (merge, delete, update_expiry).
@@ -288,13 +288,13 @@ _All routes require authentication (JWT). Role-based restrictions as noted._
   ```json
   { "message": "..." }
   ```
-- **Auth:** Central Lab Admin
+- **Auth:** Central Store Admin
 
 ### Out-of-Stock Chemicals
 - **GET** `/api/chemicals/out-of-stock`
 - **Purpose:** List all out-of-stock chemicals.
 - **Response:** Array of out-of-stock chemicals.
-- **Auth:** Admin, Central Lab Admin, or Lab Assistant
+- **Auth:** Admin, Central Store Admin, or Lab Assistant
 
 ---
 
@@ -311,7 +311,7 @@ _All routes require authentication (JWT). Role-based restrictions as noted._
   ```json
   { "message": "Glassware added/updated successfully", "batchId": "...", "items": [ ... ], "qrCodes": [ { "productId": "...", "variant": "...", "qrCodeImage": "base64..." } ] }
   ```
-- **Auth:** Admin or Central Lab Admin (JWT required)
+- **Auth:** Admin or Central Store Admin (JWT required)
 
 ### Allocate Glassware to Lab
 - **POST** `/api/glassware/allocate/lab`
@@ -324,7 +324,7 @@ _All routes require authentication (JWT). Role-based restrictions as noted._
   ```json
   { "success": true, "message": "All glassware allocated successfully", "results": [ { "glasswareId": "...", "success": true, "allocated": 1, "message": "Allocation successful" } ] }
   ```
-- **Auth:** Admin, Central Lab Admin, or Lab Assistant (JWT required)
+- **Auth:** Admin, Central Store Admin, or Lab Assistant (JWT required)
 
 ### Allocate Glassware to Faculty
 - **POST** `/api/glassware/allocate/faculty`
@@ -347,7 +347,7 @@ _All routes require authentication (JWT). Role-based restrictions as noted._
 
 ### Get Central Available Glassware
 - **GET** `/api/glassware/central/available`
-- **Purpose:** List available glassware in central lab for allocation.
+- **Purpose:** List available glassware in Central Store for allocation.
 - **Response:** Array of available glassware.
 - **Auth:** Any authenticated user
 

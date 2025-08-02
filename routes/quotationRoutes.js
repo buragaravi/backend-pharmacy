@@ -27,11 +27,11 @@ router.get(
   quotationController.getLabAssistantQuotations
 );
 
-// CENTRAL LAB ADMIN ROUTES
+// Central Store Admin ROUTES
 router.post(
   '/central/draft',
   authenticate,
-  authorizeRole('central_lab_admin'),
+  authorizeRole('central_store_admin'),
   [
     check('vendorName', 'Vendor name is required').not().isEmpty(),
     check('chemicals', 'At least one chemical is required').isArray({ min: 1 }),
@@ -47,7 +47,7 @@ router.post(
 router.post(
   '/central/draft/add-chemical',
   authenticate,
-  authorizeRole('central_lab_admin'),
+  authorizeRole('central_store_admin'),
   [
     check('quotationId', 'Quotation ID is required').not().isEmpty(),
     check('chemicalName', 'Chemical name is required').not().isEmpty(),
@@ -61,7 +61,7 @@ router.post(
 router.patch(
   '/central/draft/submit',
   authenticate,
-  authorizeRole('central_lab_admin'),
+  authorizeRole('central_store_admin'),
   [
     check('quotationId', 'Quotation ID is required').not().isEmpty()
   ],
@@ -72,7 +72,7 @@ router.patch(
 router.patch(
   '/central/allocate',
   authenticate,
-  authorizeRole('central_lab_admin'),
+  authorizeRole('central_store_admin'),
   [
     check('quotationId', 'Quotation ID is required').not().isEmpty(),
     check('status', 'Valid status is required').isIn(['allocated', 'partially_fulfilled', 'rejected']),
@@ -83,7 +83,7 @@ router.patch(
 router.get(
   '/central',
   authenticate,
-  authorizeRole('central_lab_admin'),
+  authorizeRole('central_store_admin'),
   quotationController.getCentralAdminQuotations
 );
 
@@ -110,7 +110,7 @@ router.get(
 router.get(
   '/:id',
   authenticate,
-  authorizeRole(['lab_assistant', 'central_lab_admin', 'admin']),
+  authorizeRole(['lab_assistant', 'central_store_admin', 'admin']),
   quotationController.getQuotationDetails
 );
 

@@ -4,7 +4,7 @@ const transactionController = require('../controllers/TransactionController');
 const authenticate = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 
-// Route to get all transactions (accessible by central lab admins)
+// Route to get all transactions (accessible by Central Store Admins)
 router.get('/all', authenticate,  transactionController.getAllTransactions);
 
 // Route to get transactions by lab ID (accessible by lab assistants)

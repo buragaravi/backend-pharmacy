@@ -21,7 +21,7 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['admin', 'central_lab_admin', 'lab_assistant', 'faculty'],
+      enum: ['admin', 'central_store_admin', 'lab_assistant', 'faculty'],
       required: true,
     },
     labId: {

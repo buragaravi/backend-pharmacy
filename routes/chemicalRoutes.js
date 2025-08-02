@@ -37,7 +37,7 @@ router.use(authenticate);
 // =====================
 router.post(
   '/add',
-  authorizeRole(['admin', 'central_lab_admin']),
+  authorizeRole(['admin', 'central_store_admin']),
   validateChemicalEntry,
   chemicalController.addChemicalsToCentral
 );
@@ -47,7 +47,7 @@ router.post(
 // =====================
 router.post(
   '/allocate',
-  authorizeRole(['admin','central_lab_admin']),
+  authorizeRole(['admin','central_store_admin']),
   validateAllocationBatch,
   chemicalController.allocateChemicalsToLab
 );
@@ -57,13 +57,13 @@ router.post(
 // =====================
 router.get(
   '/master',
-  authorizeRole(['admin', 'central_lab_admin']),
+  authorizeRole(['admin', 'central_store_admin']),
   chemicalController.getCentralMasterChemicals 
 );
 
 router.get(
   '/master/:labId',
-  authorizeRole(['admin', 'central_lab_admin', 'lab_assistant']),
+  authorizeRole(['admin', 'central_store_admin', 'lab_assistant']),
   chemicalController.getLabMasterChemicals
 );
 
@@ -72,7 +72,7 @@ router.get(
 // =====================
 router.get(
   '/live/:labId',
-  authorizeRole(['admin', 'central_lab_admin', 'lab_assistant']),
+  authorizeRole(['admin', 'central_store_admin', 'lab_assistant']),
   chemicalController.getLiveStockByLab
 );
 
@@ -87,7 +87,7 @@ router.get(
 // =====================
 router.get(
   '/distribution',
-  authorizeRole(['admin', 'central_lab_admin', 'lab_assistant']),
+  authorizeRole(['admin', 'central_store_admin', 'lab_assistant']),
   chemicalController.getChemicalDistribution
 );
 
@@ -96,13 +96,13 @@ router.get(
 // =====================
 router.get(
   '/expired',
-  authorizeRole(['admin','central_lab_admin']),
+  authorizeRole(['admin','central_store_admin']),
   chemicalController.getExpiredChemicals
 );
 
 router.post(
   '/expired/action',
-  authorizeRole(['central_lab_admin', 'admin']),
+  authorizeRole(['central_store_admin', 'admin']),
   chemicalController.processExpiredChemicalAction
 );
 
@@ -111,7 +111,7 @@ router.post(
 // =====================
 router.get(
   '/out-of-stock',
-  authorizeRole(['admin', 'central_lab_admin', 'lab_assistant']),
+  authorizeRole(['admin', 'central_store_admin', 'lab_assistant']),
   chemicalController.getOutOfStockChemicals
 );
 

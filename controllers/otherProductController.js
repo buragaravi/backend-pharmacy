@@ -15,7 +15,7 @@ function generateOtherProductBatchId() {
 
 // Helper: get latest other product batch ID from DB
 async function getLastUsedOtherProductBatchId() {
-  const latest = await OtherProductLive.findOne({ batchId: { $exists: true }, labId: 'central-lab' })
+  const latest = await OtherProductLive.findOne({ batchId: { $exists: true }, labId: 'central-store' })
     .sort({ createdAt: -1 })
     .select('batchId');
   return latest?.batchId || null;
@@ -57,13 +57,13 @@ const addOtherProductToCentral = asyncHandler(async (req, res) => {
   const qrCodes = [];
   for (const item of items) {
     let { productId, name, variant, quantity, vendor, pricePerUnit, department } = item;
-    const existing = await OtherProductLive.findOne({ productId, variant, labId: 'central-lab' });
+    const existing = await OtherProductLive.findOne({ productId, variant, labId: 'central-store' });
     if (!existing) {
       const qrCodeData = generateQRCodeData(productId, variant, batchId);
       const qrCodeImage = await generateQRCodeImage(qrCodeData);
       const newItem = await OtherProductLive.create({
         ...item,
-        labId: 'central-lab',
+        labId: 'central-store',
         batchId,
         department,
         vendor,
@@ -100,7 +100,7 @@ const allocateOtherProductToLab = asyncHandler(async (req, res) => {
     let remainingQty = quantity;
     // FIFO: sort by earliest expiry if present, else by createdAt
     const centralStocks = await OtherProductLive.find({
-      productId, labId: 'central-lab', variant, quantity: { $gt: 0 }
+      productId, labId: 'central-store', variant, quantity: { $gt: 0 }
     }).sort({ expiryDate: 1, createdAt: 1 }).session(session);
     if (!centralStocks.length) {
       await session.abortTransaction();
@@ -136,7 +136,7 @@ const allocateOtherProductToLab = asyncHandler(async (req, res) => {
         chemicalName: central.name,
         transactionType: 'allocation',
         chemicalLiveId: labStock._id,
-        fromLabId: 'central-lab',
+        fromLabId: 'central-store',
         toLabId,
         quantity: allocQty,
         unit: central.unit,
@@ -148,7 +148,7 @@ const allocateOtherProductToLab = asyncHandler(async (req, res) => {
     }
     if (totalAllocated < quantity) {
       await session.abortTransaction();
-      return res.status(400).json({ message: 'Insufficient stock in central lab (partial allocation)', allocated: totalAllocated });
+      return res.status(400).json({ message: 'Insufficient stock in Central Store (partial allocation)', allocated: totalAllocated });
     }
     await session.commitTransaction();
     res.status(200).json({ message: 'Other product allocated to lab', allocated: totalAllocated });
@@ -184,10 +184,10 @@ const getOtherProductStock = asyncHandler(async (req, res) => {
   res.status(200).json(stock);
 });
 
-// Get available other products in central lab (for allocation forms)
+// Get available other products in Central Store (for allocation forms)
 const getCentralAvailableOtherProducts = asyncHandler(async (req, res) => {
   try {
-    const stock = await OtherProductLive.find({ labId: 'central-lab', quantity: { $gt: 0 } })
+    const stock = await OtherProductLive.find({ labId: 'central-store', quantity: { $gt: 0 } })
       .populate('productId', 'name unit variant')
       .select('_id productId name variant quantity unit expiryDate');
     // Ensure name/unit/variant are always present (from product if missing)

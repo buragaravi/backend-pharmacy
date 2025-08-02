@@ -67,7 +67,7 @@ This document provides a comprehensive, file-by-file analysis of the backend con
 ## controllers/indentController.js
 - **Purpose:** Manages all indent (requisition/order) operations for chemicals, including creation, approval, allocation, comments, and status management.
 - **Key Features:**
-  - Indent creation and workflow for lab assistants and central lab admins.
+  - Indent creation and workflow for lab assistants and Central Store Admins.
   - Comments, remarks, and batch updates.
   - Transactional allocation and approval logic.
 
@@ -116,7 +116,7 @@ This document provides a comprehensive, file-by-file analysis of the backend con
 ## controllers/quotationController.js
 - **Purpose:** Manages all quotation-related operations for chemicals, including creation, approval, allocation, comments, and status management.
 - **Key Features:**
-  - Quotation creation and workflow for lab assistants and central lab admins.
+  - Quotation creation and workflow for lab assistants and Central Store Admins.
   - Comments, remarks, and batch updates.
   - Transactional allocation and approval logic.
 

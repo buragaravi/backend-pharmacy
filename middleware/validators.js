@@ -97,7 +97,7 @@ const validateQueryParams = [
 const validateUserUpdate = [
   body('name').optional().isString().trim().notEmpty(),
   body('email').optional().isEmail(),
-  body('role').optional().isIn(['faculty', 'lab_assistant', 'central_lab_admin', 'admin']),
+  body('role').optional().isIn(['faculty', 'lab_assistant', 'central_store_admin', 'admin']),
   body('labId').optional().isString(),
   validate
 ];
@@ -119,8 +119,8 @@ const validateGlasswareTransaction = [
   body('transactionType').isIn(['entry', 'issue', 'allocation', 'transfer', 'return', 'broken', 'maintenance']).withMessage('Invalid transaction type'),
   body('quantity').isFloat({ min: 0.1 }).withMessage('Quantity must be greater than 0'),
   body('variant').isString().notEmpty().withMessage('Variant is required'),
-  body('fromLabId').optional().isIn(['LAB01', 'LAB02', 'LAB03', 'LAB04', 'LAB05', 'LAB06', 'LAB07', 'LAB08', 'central-lab']).withMessage('Invalid from lab ID'),
-  body('toLabId').optional().isIn(['LAB01', 'LAB02', 'LAB03', 'LAB04', 'LAB05', 'LAB06', 'LAB07', 'LAB08', 'central-lab']).withMessage('Invalid to lab ID'),
+  body('fromLabId').optional().isIn(['LAB01', 'LAB02', 'LAB03', 'LAB04', 'LAB05', 'LAB06', 'LAB07', 'LAB08', 'central-store']).withMessage('Invalid from lab ID'),
+  body('toLabId').optional().isIn(['LAB01', 'LAB02', 'LAB03', 'LAB04', 'LAB05', 'LAB06', 'LAB07', 'LAB08', 'central-store']).withMessage('Invalid to lab ID'),
   body('condition').optional().isIn(['good', 'damaged', 'broken', 'under_maintenance']).withMessage('Invalid condition'),
   body('reason').optional().isString(),
   body('notes').optional().isString(),

@@ -52,7 +52,7 @@ async function removeFromOutOfStock(displayName) {
 async function reindexChemicalNames(displayName) {
   const batches = await ChemicalLive.find({
     displayName,
-    labId: 'central-lab',
+    labId: 'central-store',
     quantity: { $gt: 0 },
   }).sort({ expiryDate: 1 });
   if (batches.length === 0) return;
@@ -77,7 +77,7 @@ async function handlePostAllocation(chemicalLiveDoc) {
   // Check for other batches with same displayName
   const others = await ChemicalLive.find({
     displayName: chemicalLiveDoc.displayName,
-    labId: 'central-lab',
+    labId: 'central-store',
     _id: { $ne: chemicalLiveDoc._id },
     quantity: { $gt: 0 },
   });
@@ -137,7 +137,7 @@ exports.addChemicalsToCentral = asyncHandler(async (req, res) => {
         await noExpiryBatch.save();
         const live = await ChemicalLive.findOne({
           displayName: noExpiryBatch.chemicalName,
-          labId: 'central-lab'
+          labId: 'central-store'
         });
         if (live) {
           live.quantity += Number(quantity);
@@ -146,7 +146,7 @@ exports.addChemicalsToCentral = asyncHandler(async (req, res) => {
         }
         await createTransaction(
           noExpiryBatch.chemicalName, 'entry', noExpiryBatch._id,
-          'central-lab', 'central-lab', quantity, unit, req.userId
+          'central-store', 'central-store', quantity, unit, req.userId
         );
         savedChemicals.push(noExpiryBatch);
         continue;
@@ -197,7 +197,7 @@ exports.addChemicalsToCentral = asyncHandler(async (req, res) => {
 
       const live = await ChemicalLive.findOne({
         chemicalMasterId: exactMatch._id,
-        labId: 'central-lab'
+        labId: 'central-store'
       });
       if (live) {
         live.quantity += Number(quantity);
@@ -207,7 +207,7 @@ exports.addChemicalsToCentral = asyncHandler(async (req, res) => {
 
       await createTransaction(
         exactMatch.chemicalName, 'entry', exactMatch._id,
-        'central-lab', 'central-lab', quantity, unit, req.userId
+        'central-store', 'central-store', quantity, unit, req.userId
       );
 
       savedChemicals.push(exactMatch);
@@ -240,7 +240,7 @@ exports.addChemicalsToCentral = asyncHandler(async (req, res) => {
 
           const live = await ChemicalLive.findOne({
             chemicalMasterId: chem._id,
-            labId: 'central-lab'
+            labId: 'central-store'
           });
           if (live) {
             live.chemicalName = newName;
@@ -284,7 +284,7 @@ async function createNewChemical(name, qty, unit, expiry, batchId, vendor, price
     displayName: name.split(' - ')[0], // Store clean name without suffix
     unit,
     expiryDate: expiry,
-    labId: 'central-lab',
+    labId: 'central-store',
     quantity: qty,
     originalQuantity: qty,
     isAllocated: false
@@ -294,8 +294,8 @@ async function createNewChemical(name, qty, unit, expiry, batchId, vendor, price
     masterEntry.chemicalName,
     'entry',
     masterEntry._id,
-    'central-lab',
-    'central-lab',
+    'central-store',
+    'central-store',
     qty,
     unit,
     userId
@@ -343,7 +343,7 @@ exports.allocateChemicalsToLab = asyncHandler(async (req, res) => {
   }
 
   // Validate lab ID
-  if (!LAB_IDS.includes(labId) && labId !== 'central-lab') {
+  if (!LAB_IDS.includes(labId) && labId !== 'central-store') {
     return res.status(400).json({ message: 'Invalid lab ID' });
   }
 
@@ -370,7 +370,7 @@ exports.allocateChemicalsToLab = asyncHandler(async (req, res) => {
       let remainingQty = quantity;
       const centralStocks = await ChemicalLive.find({
         displayName: chemicalName,
-        labId: 'central-lab',
+        labId: 'central-store',
         quantity: { $gt: 0 }
       }).sort({ expiryDate: 1 }).session(session);
 
@@ -435,7 +435,7 @@ exports.allocateChemicalsToLab = asyncHandler(async (req, res) => {
           chemicalName: centralStock.chemicalName,
           transactionType: 'allocation',
           chemicalLiveId: labStock._id,
-          fromLabId: 'central-lab',
+          fromLabId: 'central-store',
           toLabId: labId,
           quantity: allocQty,
           unit: centralStock.unit,
@@ -495,15 +495,15 @@ exports.allocateChemicalsToLab = asyncHandler(async (req, res) => {
   }
 });
 
-// Get all central lab master chemicals
+// Get all Central Store master chemicals
 exports.getCentralMasterChemicals = asyncHandler(async (req, res) => {
   const chemicals = await ChemicalMaster.find().sort({ createdAt: -1 });
   res.status(200).json(chemicals);
 });
 
-// Get live stock of central lab (frontend sees displayName)
+// Get live stock of Central Store (frontend sees displayName)
 exports.getCentralLiveStock = asyncHandler(async (req, res) => {
-  const stock = await ChemicalLive.find({ labId: 'central-lab' })
+  const stock = await ChemicalLive.find({ labId: 'central-store' })
     .select('displayName quantity unit expiryDate chemicalMasterId')
     .populate('chemicalMasterId', 'batchId vendor');
   res.status(200).json(stock);
@@ -593,7 +593,7 @@ exports.getChemicalDistribution = asyncHandler(async (req, res) => {
     ]);
 
     // Normalize lab IDs and ensure all labs are represented
-    const validLabIds = ['central-lab', ...LAB_IDS];
+    const validLabIds = ['central-store', ...LAB_IDS];
     const completeDistribution = validLabIds.map(labId => {
       const labData = distribution.find(d => d.labId === labId) || {
         labId,
@@ -636,7 +636,7 @@ exports.getChemicalDistribution = asyncHandler(async (req, res) => {
 // Get simplified live chemicals for allocation form
 exports.getCentralLiveSimplified = asyncHandler(async (req, res) => {
   try {
-    const stock = await ChemicalLive.find({ labId: 'central-lab' })
+    const stock = await ChemicalLive.find({ labId: 'central-store' })
       .select('_id displayName quantity unit expiryDate chemicalMasterId ')
       .populate('chemicalMasterId', 'pricePerUnit'); // Get only pricePerUnit from master
 
@@ -658,11 +658,11 @@ exports.getCentralLiveSimplified = asyncHandler(async (req, res) => {
   }
 });
 
-// Get expired chemicals for central-lab
+// Get expired chemicals for central-store
 exports.getExpiredChemicals = asyncHandler(async (req, res) => {
   const now = new Date();
   const expired = await ChemicalLive.find({
-    labId: 'central-lab',
+    labId: 'central-store',
     expiryDate: { $lt: now }
   });
   res.status(200).json(expired);

@@ -238,7 +238,7 @@ const createTransaction = asyncHandler(async (req, res) => {
 
 // @desc    Get all glassware transactions
 // @route   GET /api/glassware-transactions/all
-// @access  Private (Central Lab Admin)
+// @access  Private (Central Store Admin)
 const getAllTransactions = asyncHandler(async (req, res) => {
   try {
     const { page = 1, limit = 50, transactionType, labId, startDate, endDate } = req.query;
@@ -296,7 +296,7 @@ const getAllTransactions = asyncHandler(async (req, res) => {
 
 // @desc    Get transactions for a specific lab
 // @route   GET /api/glassware-transactions/lab/:labId
-// @access  Private (Lab Assistant, Central Lab Admin)
+// @access  Private (Lab Assistant, Central Store Admin)
 const getLabTransactions = asyncHandler(async (req, res) => {
   const { labId } = req.params;
   const { page = 1, limit = 50, transactionType, startDate, endDate } = req.query;

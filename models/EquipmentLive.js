@@ -8,7 +8,7 @@ const equipmentLiveSchema = new mongoose.Schema({
   labId: {
     type: String,
     required: true,
-    enum: ['LAB01', 'LAB02', 'LAB03', 'LAB04', 'LAB05', 'LAB06', 'LAB07', 'LAB08', 'central-lab'],
+    enum: ['LAB01', 'LAB02', 'LAB03', 'LAB04', 'LAB05', 'LAB06', 'LAB07', 'LAB08', 'central-store'],
   },
   status: { type: String, enum: ['Available', 'Issued', 'Assigned','Maintenance', 'Discarded'], default: 'Available' },
   location: { type: String, default: 'Central Store' },

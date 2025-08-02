@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const quotationSchema = new mongoose.Schema({
   createdByRole: {
     type: String,
-    enum: ['lab_assistant', 'central_lab_admin'],
+    enum: ['lab_assistant', 'central_store_admin'],
     required: true,
   },
   createdBy: {
@@ -12,7 +12,7 @@ const quotationSchema = new mongoose.Schema({
     required: true,
   },
   labId: { type: String }, // Required for lab assistant quotes
-  vendorName: { type: String }, // Only for central lab admin
+  vendorName: { type: String }, // Only for Central Store Admin
   chemicals: [
     {
       chemicalName: { type: String, required: true },

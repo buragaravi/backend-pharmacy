@@ -27,11 +27,11 @@ router.get(
   indentController.getLabAssistantIndents
 );
 
-// CENTRAL LAB ADMIN ROUTES
+// Central Store Admin ROUTES
 router.post(
   '/central/draft',
   authenticate,
-  authorizeRole('central_lab_admin'),
+  authorizeRole('central_store_admin'),
   [
     check('vendorName', 'Vendor name is required').not().isEmpty(),
     check('chemicals', 'At least one chemical is required').isArray({ min: 1 }),
@@ -47,7 +47,7 @@ router.post(
 router.get(
   '/central',
   authenticate,
-  authorizeRole('central_lab_admin'),
+  authorizeRole('central_store_admin'),
   indentController.getCentralAdminIndents
 );
 
@@ -63,7 +63,7 @@ router.get(
 router.get(
   '/:id',
   authenticate,
-  authorizeRole(['lab_assistant', 'central_lab_admin', 'admin']),
+  authorizeRole(['lab_assistant', 'central_store_admin', 'admin']),
   indentController.getIndentDetails
 );
 
@@ -80,7 +80,7 @@ router.patch('/:indentId/chemicals/batch-remarks', indentController.updateAllChe
 router.post(
   '/central/draft/add-chemical',
   authenticate,
-  authorizeRole('central_lab_admin'),
+  authorizeRole('central_store_admin'),
   [
     check('indentId', 'Indent ID is required').not().isEmpty(),
     check('chemicals', 'At least one chemical is required').isArray({ min: 1 }),
@@ -96,7 +96,7 @@ router.post(
 router.patch(
   '/central/draft/submit',
   authenticate,
-  authorizeRole('central_lab_admin'),
+  authorizeRole('central_store_admin'),
   [
     check('indentId', 'Indent ID is required').not().isEmpty()
   ],
@@ -107,7 +107,7 @@ router.patch(
 router.patch(
   '/central/allocate',
   authenticate,
-  authorizeRole('central_lab_admin'),
+  authorizeRole('central_store_admin'),
   [
     check('indentId', 'Indent ID is required').not().isEmpty(),
     check('status', 'Valid status is required').isIn(['allocated', 'partially_fulfilled', 'rejected']),

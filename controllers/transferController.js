@@ -31,7 +31,7 @@ exports.createTransfer = async (req, res) => {
     await newTransfer.save();
 
     const newNotification = new Notification({
-      userId: 'central_lab_admin',  // Replace with actual admin or role ID
+      userId: 'central_store_admin',  // Replace with actual admin or role ID
       message: `New transfer request from lab ${fromLabId} to lab ${toLabId} awaiting approval.`,
       type: 'Transfer Pending',
     });

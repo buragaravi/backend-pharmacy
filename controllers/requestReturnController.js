@@ -67,44 +67,44 @@ exports.returnChemEquipGlass = asyncHandler(async (req, res) => {
       const candidates = await ChemicalLive.find({ displayName: chemicalName, labId });
       
       if (!candidates || candidates.length === 0) {
-        console.log(`[CHEMICAL] No ChemicalLive found for displayName ${chemicalName} in lab ${labId}, checking central-lab`);
+        console.log(`[CHEMICAL] No ChemicalLive found for displayName ${chemicalName} in lab ${labId}, checking central-store`);
         
-        // Try to find in central-lab stock
-        const centralCandidates = await ChemicalLive.find({ displayName: chemicalName, labId: 'central-lab' });
+        // Try to find in central-store stock
+        const centralCandidates = await ChemicalLive.find({ displayName: chemicalName, labId: 'central-store' });
         
         if (!centralCandidates || centralCandidates.length === 0) {
-          console.log(`[CHEMICAL] No ChemicalLive found for displayName ${chemicalName} in central-lab either`);
+          console.log(`[CHEMICAL] No ChemicalLive found for displayName ${chemicalName} in central-store either`);
           errors.push({ type: 'chemicals', error: `Chemical stock not found for ${chemicalName} in lab or central` });
           continue;
         }
         
-        // Return to central-lab stock (pick the one with the latest expiryDate)
+        // Return to central-store stock (pick the one with the latest expiryDate)
         labStock = centralCandidates.reduce((latest, curr) => {
           return (!latest || curr.expiryDate > latest.expiryDate) ? curr : latest;
         }, null);
         
         if (!labStock) {
-          console.log(`[CHEMICAL] No valid ChemicalLive found for displayName ${chemicalName} in central-lab`);
+          console.log(`[CHEMICAL] No valid ChemicalLive found for displayName ${chemicalName} in central-store`);
           errors.push({ type: 'chemicals', error: `Central stock not found for ${chemicalName}` });
           continue;
         }
         
         labStock.quantity += quantity;
         await labStock.save();
-        console.log(`[CHEMICAL] Updated central-lab stock for ${chemicalName}: +${quantity}`);
+        console.log(`[CHEMICAL] Updated central-store stock for ${chemicalName}: +${quantity}`);
         
         await Transaction.create({
           transactionType: 'return',
           chemicalName: chemicalName,
           fromLabId: 'faculty',
-          toLabId: 'central-lab',
+          toLabId: 'central-store',
           chemicalLiveId: labStock._id,
           quantity,
           unit: chemical.unit,
           createdBy: adminId,
           timestamp: new Date(),
         });
-        console.log(`[CHEMICAL] Transaction logged for ${chemicalName} (returned to central-lab)`);
+        console.log(`[CHEMICAL] Transaction logged for ${chemicalName} (returned to central-store)`);
       } else {
         // Return to lab stock (pick the one with the latest expiryDate)
         labStock = candidates.reduce((latest, curr) => {
@@ -213,7 +213,7 @@ exports.returnChemEquipGlass = asyncHandler(async (req, res) => {
         continue;
       }
       
-      // Update GlasswareLive stock - return to the lab or central-lab as fallback
+      // Update GlasswareLive stock - return to the lab or central-store as fallback
       try {
         let glasswareStock = await GlasswareLive.findById(glasswareId);
         let returnLabId = labId;
@@ -226,32 +226,32 @@ exports.returnChemEquipGlass = asyncHandler(async (req, res) => {
         
         // Check if the glassware belongs to the requesting lab
         if (glasswareStock.labId !== labId) {
-          console.log(`[GLASSWARE] Glassware ${glasswareId} doesn't belong to lab ${labId}, returning to central-lab`);
+          console.log(`[GLASSWARE] Glassware ${glasswareId} doesn't belong to lab ${labId}, returning to central-store`);
           
-          // Try to find the same glassware in central-lab
+          // Try to find the same glassware in central-store
           const centralGlassware = await GlasswareLive.findOne({
             productId: glasswareStock.productId,
             variant: glasswareStock.variant,
-            labId: 'central-lab'
+            labId: 'central-store'
           });
           
           if (centralGlassware) {
             glasswareStock = centralGlassware;
-            returnLabId = 'central-lab';
-            console.log(`[GLASSWARE] Found matching glassware in central-lab, returning there`);
+            returnLabId = 'central-store';
+            console.log(`[GLASSWARE] Found matching glassware in central-store, returning there`);
           } else {
-            console.log(`[GLASSWARE] No matching glassware in central-lab, creating new entry`);
-            // Create new entry in central-lab
+            console.log(`[GLASSWARE] No matching glassware in central-store, creating new entry`);
+            // Create new entry in central-store
             glasswareStock = await GlasswareLive.create({
               productId: glasswareStock.productId,
               name: glasswareStock.name,
               variant: glasswareStock.variant,
-              labId: 'central-lab',
+              labId: 'central-store',
               quantity: 0,
               unit: glasswareStock.unit,
               batchId: glasswareStock.batchId
             });
-            returnLabId = 'central-lab';
+            returnLabId = 'central-store';
           }
         }
         

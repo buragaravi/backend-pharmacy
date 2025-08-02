@@ -36,7 +36,7 @@ exports.createLabIndent = asyncHandler(async (req, res) => {
   res.status(201).json({ msg: 'Lab indent submitted', indent });
 });
 
-// CENTRAL LAB ADMIN: Create new draft indent
+// Central Store Admin: Create new draft indent
 exports.createDraftIndent = asyncHandler(async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
@@ -44,7 +44,7 @@ exports.createDraftIndent = asyncHandler(async (req, res) => {
   const { vendorName, chemicals, totalPrice, expectedDeliveryDate } = req.body;
 
   const indent = new Indent({
-    createdByRole: 'central_lab_admin',
+    createdByRole: 'central_store_admin',
     createdBy: req.user._id,
     vendorName,
     chemicals: chemicals.map(chem => ({
@@ -72,11 +72,11 @@ exports.getLabAssistantIndents = asyncHandler(async (req, res) => {
   res.status(200).json(indents);
 });
 
-// CENTRAL LAB ADMIN: Get indents
+// Central Store Admin: Get indents
 exports.getCentralAdminIndents = asyncHandler(async (req, res) => {
   const { status } = req.query;
   const query = {
-    createdByRole: { $in: ['lab_assistant', 'central_lab_admin'] }
+    createdByRole: { $in: ['lab_assistant', 'central_store_admin'] }
   };
   if (status) query.status = status;
   const indents = await Indent.find(query)
@@ -89,7 +89,7 @@ exports.getCentralAdminIndents = asyncHandler(async (req, res) => {
 exports.getAdminIndents = asyncHandler(async (req, res) => {
   const { status } = req.query;
   const query = {
-    createdByRole: 'central_lab_admin',
+    createdByRole: 'central_store_admin',
     status: { $ne: 'draft' }
   };
   if (status) query.status = status;
@@ -136,8 +136,8 @@ exports.addChemicalRemarks = async (req, res) => {
   try {
     const { indentId } = req.params;
     const { chemicalUpdates } = req.body;
-    if (req.user.role !== 'central_lab_admin') {
-      return res.status(403).json({ message: 'Only central lab administrators can add remarks to chemicals' });
+    if (req.user.role !== 'central_store_admin') {
+      return res.status(403).json({ message: 'Only Central Store Administrators can add remarks to chemicals' });
     }
     const indent = await Indent.findById(indentId);
     if (!indent) {
@@ -188,10 +188,10 @@ exports.updateIndentChemicals = async (req, res) => {
       role: req.user?.role || 'system',
       createdAt: new Date()
     });
-    if (req.user.role !== 'central_lab_admin' && indent.createdBy.toString() !== req.user.id) {
+    if (req.user.role !== 'central_store_admin' && indent.createdBy.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Not authorized to update this indent' });
     }
-    if (req.user.role === 'central_lab_admin') {
+    if (req.user.role === 'central_store_admin') {
       if (Array.isArray(chemicals)) {
         chemicals.forEach(updatedChem => {
           const index = indent.chemicals.findIndex(
@@ -232,8 +232,8 @@ exports.updateAllChemicalRemarks = async (req, res) => {
   try {
     const { indentId } = req.params;
     const { standardRemark } = req.body;
-    if (!req.user || req.user.role !== 'central_lab_admin') {
-      return res.status(403).json({ message: 'Only central lab administrators can perform batch updates' });
+    if (!req.user || req.user.role !== 'central_store_admin') {
+      return res.status(403).json({ message: 'Only Central Store Administrators can perform batch updates' });
     }
     const indent = await Indent.findById(indentId);
     if (!indent) {
@@ -267,7 +267,7 @@ exports.updateAllChemicalRemarks = async (req, res) => {
   }
 };
 
-// CENTRAL LAB ADMIN: Add chemical to existing draft indent
+// Central Store Admin: Add chemical to existing draft indent
 exports.addChemicalToDraft = asyncHandler(async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
@@ -291,7 +291,7 @@ exports.addChemicalToDraft = asyncHandler(async (req, res) => {
   res.status(200).json({ msg: 'Chemical(s) added to draft', indent });
 });
 
-// CENTRAL LAB ADMIN: Submit draft indent (status → pending)
+// Central Store Admin: Submit draft indent (status → pending)
 exports.submitDraftToPending = asyncHandler(async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
@@ -307,7 +307,7 @@ exports.submitDraftToPending = asyncHandler(async (req, res) => {
   res.status(200).json({ msg: 'Draft submitted for approval', draft });
 });
 
-// CENTRAL LAB ADMIN: Allocate chemicals from lab assistant's indent
+// Central Store Admin: Allocate chemicals from lab assistant's indent
 exports.allocateLabIndent = asyncHandler(async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
@@ -343,7 +343,7 @@ exports.allocateLabIndent = asyncHandler(async (req, res) => {
 
   // If status is 'allocated' or 'fulfilled', allocate chemicals to the lab
   if (['allocated', 'fulfilled'].includes(status)) {
-    // For each chemical, deduct from central lab and add to the lab's stock
+    // For each chemical, deduct from Central Store and add to the lab's stock
     const allocationResults = [];
     let allAllocated = true;
     const session = await mongoose.startSession();
@@ -355,7 +355,7 @@ exports.allocateLabIndent = asyncHandler(async (req, res) => {
           const centralStock = await ChemicalLive.findOneAndUpdate(
             {
               displayName: chem.chemicalName,
-              labId: 'central-lab',
+              labId: 'central-store',
               quantity: { $gte: chem.quantity }
             },
             { $inc: { quantity: -chem.quantity } },
@@ -395,7 +395,7 @@ exports.allocateLabIndent = asyncHandler(async (req, res) => {
               chemicalName: centralStock.chemicalName,
               transactionType: 'allocation',
               chemicalLiveId: labStock._id,
-              fromLabId: 'central-lab',
+              fromLabId: 'central-store',
               toLabId: indent.labId,
               quantity: chem.quantity,
               unit: centralStock.unit,

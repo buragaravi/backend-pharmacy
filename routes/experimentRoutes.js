@@ -11,12 +11,12 @@ router.get('/', experimentController.getExperiments);
 router.get('/:id', experimentController.getExperimentById);
 
 // Create new experiment (admin only)
-router.post('/', authenticate, authorizeRole(['admin', 'central_lab_admin']), experimentController.createExperiment);
+router.post('/', authenticate, authorizeRole(['admin', 'central_store_admin']), experimentController.createExperiment);
 
 // Update experiment (admin only)
-router.put('/:id', authenticate, authorizeRole(['admin', 'central_lab_admin']), experimentController.updateExperiment);
+router.put('/:id', authenticate, authorizeRole(['admin', 'central_store_admin']), experimentController.updateExperiment);
 
 // Delete experiment (admin only)
-router.delete('/:id', authenticate, authorizeRole(['admin', 'central_lab_admin']), experimentController.deleteExperiment);
+router.delete('/:id', authenticate, authorizeRole(['admin', 'central_store_admin']), experimentController.deleteExperiment);
 
 module.exports = router; 

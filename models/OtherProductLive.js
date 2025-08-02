@@ -4,7 +4,7 @@ const otherProductLiveSchema = new mongoose.Schema({
   productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
   name: { type: String, required: true },
   variant: { type: String },
-  labId: { type: String, required: true }, // 'central-lab' or lab code
+  labId: { type: String, required: true }, // 'central-store' or lab code
   quantity: { type: Number, required: true },
   unit: { type: String },
   expiryDate: { type: Date },

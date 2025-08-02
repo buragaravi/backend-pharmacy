@@ -22,7 +22,7 @@ function generateEquipmentBatchId() {
 
 // Helper: get latest equipment batch ID from DB
 async function getLastUsedEquipmentBatchId() {
-  const latest = await EquipmentLive.findOne({ batchId: { $exists: true }, labId: 'central-lab' })
+  const latest = await EquipmentLive.findOne({ batchId: { $exists: true }, labId: 'central-store' })
     .sort({ createdAt: -1 })
     .select('batchId');
   return latest?.batchId || null;
@@ -81,7 +81,7 @@ const addEquipmentToCentral = asyncHandler(async (req, res) => {
         productId,
         name,
         variant,
-        labId: 'central-lab',
+        labId: 'central-store',
         status: 'Available',
         location: 'Central Store',
         assignedTo: null,
@@ -130,7 +130,7 @@ const allocateEquipmentToLab = asyncHandler(async (req, res) => {
     let remainingQty = quantity;
     // FIFO: sort by earliest expiry if present, else by createdAt
     const centralStocks = await EquipmentLive.find({
-      productId, labId: 'central-lab', variant, quantity: { $gt: 0 }
+      productId, labId: 'central-store', variant, quantity: { $gt: 0 }
     }).sort({ expiryDate: 1, createdAt: 1 }).session(session);
     if (!centralStocks.length) {
       await session.abortTransaction();
@@ -166,7 +166,7 @@ const allocateEquipmentToLab = asyncHandler(async (req, res) => {
         chemicalName: central.name,
         transactionType: 'allocation',
         chemicalLiveId: labStock._id,
-        fromLabId: 'central-lab',
+        fromLabId: 'central-store',
         toLabId,
         quantity: allocQty,
         unit: central.unit,
@@ -178,7 +178,7 @@ const allocateEquipmentToLab = asyncHandler(async (req, res) => {
     }
     if (totalAllocated < quantity) {
       await session.abortTransaction();
-      return res.status(400).json({ message: 'Insufficient stock in central lab (partial allocation)', allocated: totalAllocated });
+      return res.status(400).json({ message: 'Insufficient stock in Central Store (partial allocation)', allocated: totalAllocated });
     }
     await session.commitTransaction();
     res.status(200).json({ message: 'Equipment allocated to lab', allocated: totalAllocated });
@@ -216,7 +216,7 @@ const allocateEquipmentToLabByScan = asyncHandler(async (req, res) => {
   if (!item) {
     return res.status(404).json({ message: 'Equipment item not found' });
   }
-  if (item.status !== 'Available' || item.labId !== 'central-lab') {
+  if (item.status !== 'Available' || item.labId !== 'central-store') {
     return res.status(400).json({ message: 'Item not available for allocation' });
   }
   item.status = 'Issued';
@@ -230,7 +230,7 @@ const allocateEquipmentToLabByScan = asyncHandler(async (req, res) => {
     action: 'issue',
     performedBy: req.userId || req.user?._id || new mongoose.Types.ObjectId('68272133e26ef88fb399cd75'),
     performedByRole: req.userRole || req.user?.role ||'admin',
-    fromLocation: 'central-lab',
+    fromLocation: 'central-store',
     toLocation: toLabId,
     assignedTo: toLabId,
     remarks: 'Allocated to lab',
@@ -262,7 +262,7 @@ const returnEquipmentToCentral = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: 'Item is not currently issued' });
   }
   item.status = 'Available';
-  item.labId = 'central-lab';
+  item.labId = 'central-store';
   item.location = 'Central Store';
   item.assignedTo = null;
   await item.save();
@@ -273,7 +273,7 @@ const returnEquipmentToCentral = asyncHandler(async (req, res) => {
     performedBy: req.userId || req.user?._id || new mongoose.Types.ObjectId('68272133e26ef88fb399cd75'),
     performedByRole: req.userRole || req.user?.role ||'admin',
     fromLocation: item.labId,
-    toLocation: 'central-lab',
+    toLocation: 'central-store',
     assignedTo: null,
     remarks: 'Returned to central',
     interface: 'web',
@@ -648,7 +648,7 @@ const getLiveEquipmentByLab = asyncHandler(async (req, res) => {
   try {
     const { labId } = req.query;
     let filter = {};
-    if (labId && labId.toLowerCase() !== 'central-lab') {
+    if (labId && labId.toLowerCase() !== 'central-store') {
       filter.location = labId;
     }
     const equipment = await EquipmentLive.find(filter);

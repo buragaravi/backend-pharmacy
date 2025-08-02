@@ -24,8 +24,8 @@ const applyRoleFilters = (user, baseQuery = {}) => {
   switch(user.role) {
     case 'admin':
       return baseQuery; // No filters for admin
-    case 'central_lab_admin':
-      return { ...baseQuery, labId: 'central-lab' };
+    case 'central_store_admin':
+      return { ...baseQuery, labId: 'central-store' };
     case 'lab_assistant':
       return { ...baseQuery, labId: user.labId };
     case 'faculty':
@@ -54,7 +54,7 @@ exports.getSystemOverview = asyncHandler(async (req, res) => {
     chemicalDistribution
   ] = await Promise.all([
     ChemicalMaster.countDocuments(),
-    ChemicalLive.distinct('labId').then(labs => labs.filter(l => l !== 'central-lab').length),
+    ChemicalLive.distinct('labId').then(labs => labs.filter(l => l !== 'central-store').length),
     Request.countDocuments({ status: { $in: ['pending', 'partially_fulfilled'] } }),
     Quotation.countDocuments({ status: 'pending' }),
     Transaction.countDocuments({ createdAt: { $gte: timeRanges.last30Days } }),
@@ -380,9 +380,9 @@ exports.getFacultyAnalytics = asyncHandler(async (req, res) => {
 
 // @desc    Get predictive analytics
 // @route   GET /api/analytics/predictive
-// @access  Admin, Central Lab Admin
+// @access  Admin, Central Store Admin
 exports.getPredictiveAnalytics = asyncHandler(async (req, res) => {
-  if(!['admin', 'central_lab_admin'].includes(req.user.role)) {
+  if(!['admin', 'central_store_admin'].includes(req.user.role)) {
     return res.status(403).json({ error: 'Access denied' });
   }
 

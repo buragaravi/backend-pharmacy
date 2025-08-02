@@ -164,7 +164,7 @@ const createGlasswareInvoice = asyncHandler(async (req, res) => {
     totalInvoicePrice: finalTotalPrice,
     lineItems: enrichedItems
   });
-  // Add glassware to central lab after invoice creation
+  // Add glassware to Central Store after invoice creation
   try {
     const items = enrichedItems.map(item => ({
       productId: item.productId,
@@ -175,7 +175,7 @@ const createGlasswareInvoice = asyncHandler(async (req, res) => {
     }));
     if (items.length > 0) {
       await addGlasswareToCentral({ body: { items } }, { status: () => ({ json: () => {} }) });
-      console.log('Glassware added to central lab successfully');
+      console.log('Glassware added to Central Store successfully');
     }
   } catch (err) {
     console.error('Failed to add glassware to central lab:', err.message);
@@ -244,7 +244,7 @@ const createOthersInvoice = asyncHandler(async (req, res) => {
     totalInvoicePrice: finalTotalPrice,
     lineItems: enrichedItems
   });
-  // Add other products to central lab after invoice creation
+  // Add other products to Central Store after invoice creation
   try {
     const items = enrichedItems.map(item => ({
       productId: item.productId,
@@ -254,7 +254,7 @@ const createOthersInvoice = asyncHandler(async (req, res) => {
     }));
     if (items.length > 0) {
       await addOtherProductToCentral({ body: { items } }, { status: () => ({ json: () => {} }) });
-      console.log('Other products added to central lab successfully');
+      console.log('Other products added to Central Store successfully');
     }
   } catch (err) {
     console.error('Failed to add other products to central lab:', err.message);
@@ -338,7 +338,7 @@ const createEquipmentInvoice = asyncHandler(async (req, res) => {
     totalInvoicePrice: finalTotalPrice,
     lineItems: enrichedItems
   });
-  // Add equipment to central lab after invoice creation and capture QR codes
+  // Add equipment to Central Store after invoice creation and capture QR codes
   let qrCodes = [];
   try {
     const items = enrichedItems.map(item => ({

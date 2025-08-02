@@ -111,26 +111,26 @@ const batchValidation = [
 // Course routes
 router.route('/')
   .get(getCourses)
-  .post(authorizerole('admin', 'central_lab_admin'), courseValidation, createCourse);
+  .post(authorizerole('admin', 'central_store_admin'), courseValidation, createCourse);
 
 router.route('/active')
   .get(getActiveCourses);
 
 router.route('/stats')
-  .get(authorizerole('admin', 'central_lab_admin'), getCourseStats);
+  .get(authorizerole('admin', 'central_store_admin'), getCourseStats);
 
 router.route('/:id')
   .get(getCourseById)
-  .put(authorizerole('admin', 'central_lab_admin'), courseUpdateValidation, updateCourse)
-  .delete(authorizerole('admin', 'central_lab_admin'), deleteCourse);
+  .put(authorizerole('admin', 'central_store_admin'), courseUpdateValidation, updateCourse)
+  .delete(authorizerole('admin', 'central_store_admin'), deleteCourse);
 
 // Batch routes within courses
 router.route('/:courseId/batches')
   .get(getCourseBatches)
-  .post(authorizerole('admin', 'central_lab_admin'), batchValidation, addBatch);
+  .post(authorizerole('admin', 'central_store_admin'), batchValidation, addBatch);
 
 router.route('/:courseId/batches/:batchId')
-  .put(authorizerole('admin', 'central_lab_admin'), updateBatch)
-  .delete(authorizerole('admin', 'central_lab_admin'), deleteBatch);
+  .put(authorizerole('admin', 'central_store_admin'), updateBatch)
+  .delete(authorizerole('admin', 'central_store_admin'), deleteBatch);
 
 module.exports = router;

@@ -14,7 +14,7 @@ const chemicalLiveSchema = new mongoose.Schema(
     labId: {
       type: String,
       required: true,
-      enum: ['LAB01', 'LAB02', 'LAB03', 'LAB04', 'LAB05', 'LAB06', 'LAB07', 'LAB08', 'central-lab'],
+      enum: ['LAB01', 'LAB02', 'LAB03', 'LAB04', 'LAB05', 'LAB06', 'LAB07', 'LAB08', 'central-store'],
     },
     quantity: { type: Number, required: true },
     originalQuantity: { type: Number, required: true },

@@ -37,7 +37,7 @@ router.get(
 router.get(
   '/labs',
   authenticate,
-  authorizeRole(['admin', 'central_lab_admin', 'lab_assistant']),
+  authorizeRole(['admin', 'central_store_admin', 'lab_assistant']),
   [
     check('labId').optional().isString(),
     check('timeRange').optional().isIn([
@@ -67,11 +67,11 @@ router.get(
 
 // @route   GET /api/analytics/predictive
 // @desc    Get predictive analytics and forecasts
-// @access  Private (Admin, Central Lab Admin)
+// @access  Private (Admin, Central Store Admin)
 router.get(
   '/predictive',
   authenticate,
-  authorizeRole(['admin', 'central_lab_admin']),
+  authorizeRole(['admin', 'central_store_admin']),
   [
     check('months').optional().isInt({ min: 1, max: 12 })
   ],

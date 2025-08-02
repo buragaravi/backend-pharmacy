@@ -23,7 +23,7 @@ function generateGlasswareBatchId() {
 async function getLastUsedGlasswareBatchId() {
   const latest = await GlasswareLive.findOne({
     batchId: { $exists: true },
-    labId: 'central-lab'
+    labId: 'central-store'
   })
     .sort({ createdAt: -1 })
     .select('batchId');
@@ -55,7 +55,7 @@ const addGlasswareToCentral = asyncHandler(async (req, res) => {
     const existingItem = await GlasswareLive.findOne({
       productId,
       variant, // Variant is the key differentiator
-      labId: 'central-lab'
+      labId: 'central-store'
     });
 
     // 2. If no matching glassware exists, create new with QR code
@@ -65,7 +65,7 @@ const addGlasswareToCentral = asyncHandler(async (req, res) => {
 
       const newItem = await GlasswareLive.create({
         ...item,
-        labId: 'central-lab',
+        labId: 'central-store',
         batchId,
         department,
         vendor,
@@ -82,7 +82,7 @@ const addGlasswareToCentral = asyncHandler(async (req, res) => {
         transactionType: 'entry',
         quantity: quantity,
         variant: variant,
-        toLabId: 'central-lab',
+        toLabId: 'central-store',
         condition: 'good',
         batchId,
         notes: `Initial entry to central lab`,
@@ -109,7 +109,7 @@ const addGlasswareToCentral = asyncHandler(async (req, res) => {
       transactionType: 'entry',
       quantity: Number(quantity),
       variant: existingItem.variant,
-      toLabId: 'central-lab',
+      toLabId: 'central-store',
       condition: 'good',
       batchId,
       notes: `Additional stock entry to central lab`,
@@ -195,14 +195,14 @@ const allocateGlasswareToLab = asyncHandler(async (req, res) => {
         // Get glassware details (including variant if exists)
         const glasswareDetails = await GlasswareLive.findOne({
           _id: glasswareId,
-          labId: 'central-lab',
+          labId: 'central-store',
         }).session(session);
 
         if (!glasswareDetails) {
           allocationResults.push({
             glasswareId,
             success: false,
-            message: 'Glassware not found in central lab or out of stock'
+            message: 'Glassware not found in Central Store or out of stock'
           });
           hasErrors = true;
           continue;
@@ -211,7 +211,7 @@ const allocateGlasswareToLab = asyncHandler(async (req, res) => {
         // FIFO allocation
         const centralStocks = await GlasswareLive.find({
           _id: glasswareId,
-          labId: 'central-lab',
+          labId: 'central-store',
         })
           .sort({  createdAt: 1 })
           .limit(100)
@@ -271,11 +271,11 @@ const allocateGlasswareToLab = asyncHandler(async (req, res) => {
             transactionType: 'allocation',
             quantity: allocQty,
             variant: central.variant || central.unit,
-            fromLabId: 'central-lab',
+            fromLabId: 'central-store',
             toLabId,
             condition: 'good',
             batchId: central.batchId,
-            notes: `Allocated from central lab to ${toLabId}`,
+            notes: `Allocated from Central Store to ${toLabId}`,
             createdBy: req.user?._id || req.userId || new mongoose.Types.ObjectId('68272133e26ef88fb399cd75')
           }], { session });
 
@@ -291,7 +291,7 @@ const allocateGlasswareToLab = asyncHandler(async (req, res) => {
             success: false,
             allocated: totalAllocated,
             required: quantity,
-            message: 'Insufficient stock in central lab (partial allocation)'
+            message: 'Insufficient stock in Central Store (partial allocation)'
           });
           hasErrors = true;
         } else {
@@ -430,10 +430,10 @@ const getGlasswareStock = asyncHandler(async (req, res) => {
   }
 });
 
-// Get available glassware in central lab (for allocation forms)
+// Get available glassware in Central Store (for allocation forms)
 const getCentralAvailableGlassware = asyncHandler(async (req, res) => {
   try {
-    const stock = await GlasswareLive.find({ labId: 'central-lab' })
+    const stock = await GlasswareLive.find({ labId: 'central-store' })
       .populate('productId', 'name unit variant')
       .select('_id productId name variant quantity unit expiryDate qrCodeImage qrCodeData');
     // Ensure name/unit/variant are always present (from product if missing)

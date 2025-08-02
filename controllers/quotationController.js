@@ -36,7 +36,7 @@ exports.createLabQuotation = asyncHandler(async (req, res) => {
   res.status(201).json({ msg: 'Lab quotation submitted', quotation });
 });
 
-// CENTRAL LAB ADMIN: Create new draft quotation
+// Central Store Admin: Create new draft quotation
 exports.createDraftQuotation = asyncHandler(async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
@@ -44,7 +44,7 @@ exports.createDraftQuotation = asyncHandler(async (req, res) => {
   const { vendorName, chemicals, totalPrice, expectedDeliveryDate } = req.body;
 
   const quotation = new Quotation({
-    createdByRole: 'central_lab_admin',
+    createdByRole: 'central_store_admin',
     createdBy: req.user._id,
     vendorName,
     chemicals: chemicals.map(chem => ({
@@ -63,7 +63,7 @@ exports.createDraftQuotation = asyncHandler(async (req, res) => {
   res.status(201).json({ msg: 'Draft quotation created', quotation });
 });
 
-// CENTRAL LAB ADMIN: Add chemical to existing draft
+// Central Store Admin: Add chemical to existing draft
 exports.addChemicalToDraft = asyncHandler(async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
@@ -89,7 +89,7 @@ exports.addChemicalToDraft = asyncHandler(async (req, res) => {
   res.status(200).json({ msg: 'Chemical added to draft', draft });
 });
 
-// CENTRAL LAB ADMIN: Submit draft quotation (status → pending)
+// Central Store Admin: Submit draft quotation (status → pending)
 exports.submitDraftToPending = asyncHandler(async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
@@ -108,7 +108,7 @@ exports.submitDraftToPending = asyncHandler(async (req, res) => {
   res.status(200).json({ msg: 'Draft submitted for approval', draft });
 });
 
-// CENTRAL LAB ADMIN: Allocate chemicals from lab assistant's quotation
+// Central Store Admin: Allocate chemicals from lab assistant's quotation
 exports.allocateLabQuotation = asyncHandler(async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
@@ -175,7 +175,7 @@ exports.allocateLabQuotation = asyncHandler(async (req, res) => {
         const centralStock = await ChemicalLive.findOneAndUpdate(
           {
             displayName: chem.chemicalName,
-            labId: 'central-lab',
+            labId: 'central-store',
             quantity: { $gte: chem.quantity }
           },
           { $inc: { quantity: -chem.quantity } },
@@ -226,7 +226,7 @@ exports.allocateLabQuotation = asyncHandler(async (req, res) => {
             chemicalName: centralStock.chemicalName,
             transactionType: 'allocation',
             chemicalLiveId: labStock._id,
-            fromLabId: 'central-lab',
+            fromLabId: 'central-store',
             toLabId: quotation.labId,
             quantity: chem.quantity,
             unit: centralStock.unit,
@@ -339,7 +339,7 @@ exports.processCentralQuotation = asyncHandler(async (req, res) => {
       // Add to central live stock
       let liveStock = await ChemicalLive.findOne({
         chemicalMasterId: master._id,
-        labId: 'central-lab'
+        labId: 'central-store'
       });
 
       if (liveStock) {
@@ -348,7 +348,7 @@ exports.processCentralQuotation = asyncHandler(async (req, res) => {
         liveStock = new ChemicalLive({
           chemicalMasterId: master._id,
           chemicalName: chem.chemicalName,
-          labId: 'central-lab',
+          labId: 'central-store',
           quantity: chem.quantity,
           originalQuantity: chem.quantity,
           unit: chem.unit,
@@ -362,7 +362,7 @@ exports.processCentralQuotation = asyncHandler(async (req, res) => {
         chemicalName: chem.chemicalName,
         transactionType: 'purchase',
         fromLabId: 'vendor',
-        toLabId: 'central-lab',
+        toLabId: 'central-store',
         quantity: chem.quantity,
         unit: chem.unit,
         createdBy: req.user._id,
@@ -385,11 +385,11 @@ exports.getLabAssistantQuotations = asyncHandler(async (req, res) => {
   res.status(200).json(quotations);
 });
 
-// GET quotations for Central Lab Admin
+// GET quotations for Central Store Admin
 exports.getCentralAdminQuotations = asyncHandler(async (req, res) => {
   const { status } = req.query;
   const query = {
-    createdByRole: { $in: ['lab_assistant', 'central_lab_admin'] }
+    createdByRole: { $in: ['lab_assistant', 'central_store_admin'] }
   };
 
   if (status) query.status = status;
@@ -405,7 +405,7 @@ exports.getCentralAdminQuotations = asyncHandler(async (req, res) => {
 exports.getAdminQuotations = asyncHandler(async (req, res) => {
   const { status } = req.query;
   const query = {
-    createdByRole: 'central_lab_admin',
+    createdByRole: 'central_store_admin',
     status: { $ne: 'draft' }
   };
 
@@ -436,7 +436,7 @@ exports.getQuotationDetails = asyncHandler(async (req, res) => {
       quotation.chemicals.map(async chem => {
         const centralStock = await ChemicalLive.findOne({
           chemicalName: chem.chemicalName,
-          labId: 'central-lab'
+          labId: 'central-store'
         });
         return {
           ...chem.toObject(),
@@ -481,9 +481,9 @@ exports.addChemicalRemarks = async (req, res) => {
     const { quotationId } = req.params;
     const { chemicalUpdates } = req.body;
 
-    // Verify user role is central_lab_admin
-    if (req.user.role !== 'central_lab_admin') {
-      return res.status(403).json({ message: 'Only central lab administrators can add remarks to chemicals' });
+    // Verify user role is central_store_admin
+    if (req.user.role !== 'central_store_admin') {
+      return res.status(403).json({ message: 'Only Central Store Administrators can add remarks to chemicals' });
     }
 
     // Find the quotation
@@ -552,13 +552,13 @@ exports.updateQuotationChemicals = async (req, res) => {
     });
 
     // Check authorization based on quotation status and user role
-    if (req.user.role !== 'central_lab_admin' &&
+    if (req.user.role !== 'central_store_admin' &&
       quotation.createdBy.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Not authorized to update this quotation' });
     }
 
     // For central admin, allow updating chemicals including remarks
-    if (req.user.role === 'central_lab_admin') {
+    if (req.user.role === 'central_store_admin') {
       // Update chemicals array with new data
       if (Array.isArray(chemicals)) {
         chemicals.forEach(updatedChem => {
@@ -613,8 +613,8 @@ exports.updateAllChemicalRemarks = async (req, res) => {
     const { standardRemark } = req.body;
 
     // Defensive: Check req.user exists and has role
-    if (!req.user || req.user.role !== 'central_lab_admin') {
-      return res.status(403).json({ message: 'Only central lab administrators can perform batch updates' });
+    if (!req.user || req.user.role !== 'central_store_admin') {
+      return res.status(403).json({ message: 'Only Central Store Administrators can perform batch updates' });
     }
 
     // Find the quotation

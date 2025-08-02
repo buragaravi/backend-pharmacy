@@ -134,7 +134,7 @@ const allocateEquipmentToLab = asyncHandler(async (req, res) => {
     }).sort({ expiryDate: 1, createdAt: 1 }).session(session);
     if (!centralStocks.length) {
       await session.abortTransaction();
-      return res.status(400).json({ message: 'Insufficient stock in central lab' });
+      return res.status(400).json({ message: 'Insufficient stock in Central Store ' });
     }
     let totalAllocated = 0;
     for (const central of centralStocks) {

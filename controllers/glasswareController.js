@@ -85,7 +85,7 @@ const addGlasswareToCentral = asyncHandler(async (req, res) => {
         toLabId: 'central-store',
         condition: 'good',
         batchId,
-        notes: `Initial entry to central lab`,
+        notes: `Initial entry to Central Store `,
         createdBy: req.userId || req._id || new mongoose.Types.ObjectId('68272133e26ef88fb399cd75') // Fallback admin ID
       });
 
@@ -112,7 +112,7 @@ const addGlasswareToCentral = asyncHandler(async (req, res) => {
       toLabId: 'central-store',
       condition: 'good',
       batchId,
-      notes: `Additional stock entry to central lab`,
+      notes: `Additional stock entry to Central Store `,
       createdBy: req.userId || req._id || new mongoose.Types.ObjectId('68272133e26ef88fb399cd75') // Fallback admin ID
     });
 
@@ -222,7 +222,7 @@ const allocateGlasswareToLab = asyncHandler(async (req, res) => {
           allocationResults.push({
             glasswareId,
             success: false,
-            message: 'Insufficient stock in central lab'
+            message: 'Insufficient stock in Central Store '
           });
           hasErrors = true;
           continue;

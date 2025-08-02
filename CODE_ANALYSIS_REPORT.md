@@ -30,7 +30,7 @@ This document provides a comprehensive, file-by-file analysis of the backend con
 - **Purpose:** Manages all chemical-related operations, including adding chemicals, batch management, stock/out-of-stock handling, and transaction logging.
 - **Key Features:**
   - Helpers for batch ID generation, out-of-stock management, and reindexing.
-  - Add/update chemicals to central lab, handling naming, expiry, and batch conflicts.
+  - Add/update chemicals to Central Store , handling naming, expiry, and batch conflicts.
   - FIFO allocation to labs with transaction safety.
   - Transaction logging for all chemical movements.
 

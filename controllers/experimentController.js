@@ -1,26 +1,74 @@
 const asyncHandler = require('express-async-handler');
 const Experiment = require('../models/Experiment');
+const Subject = require('../models/Subject');
 const Request = require('../models/Request');
 
 // Add new experiment
 exports.addExperiment = asyncHandler(async (req, res) => {
-  const { name, semester, subject, description, defaultChemicals, courseId, batchId } = req.body;
+  console.log('=== EXPERIMENT CREATION REQUEST ===');
+  console.log('Request body:', req.body);
+  console.log('User:', req.user);
+  
+  const { name, subjectId, description, defaultChemicals } = req.body;
 
-  const experiment = await Experiment.create({
-    name,
-    semester,
-    subject,
-    description,
-    defaultChemicals,
-    courseId,
-    batchId,
-    createdBy: req.userId ||req.user.id || req.user._id ||'admin'
-  });
+  // Validate required fields
+  if (!name || !name.trim()) {
+    return res.status(400).json({ message: 'Experiment name is required' });
+  }
 
-  res.status(201).json({
-    message: 'Experiment added successfully',
-    experiment
-  });
+  if (!subjectId) {
+    return res.status(400).json({ message: 'Subject ID is required' });
+  }
+
+  if (!defaultChemicals || !Array.isArray(defaultChemicals) || defaultChemicals.length === 0) {
+    return res.status(400).json({ message: 'At least one default chemical is required' });
+  }
+
+  // Validate subject exists
+  if (subjectId) {
+    const subjectExists = await Subject.findById(subjectId);
+    if (!subjectExists) {
+      return res.status(400).json({ message: 'Invalid subject reference' });
+    }
+    console.log('Subject found:', subjectExists);
+  }
+
+  try {
+    console.log('Creating experiment with data:', {
+      name,
+      subjectId,
+      description,
+      defaultChemicals,
+      createdBy: req.userId || req.user?.id || req.user?._id || 'admin'
+    });
+
+    const experiment = await Experiment.create({
+      name,
+      subjectId,
+      description,
+      defaultChemicals,
+      createdBy: req.userId || req.user?.id || req.user?._id || 'admin'
+    });
+
+    console.log('Experiment created successfully:', experiment);
+
+    // Populate subject details in response
+    await experiment.populate([
+      { path: 'subjectId', populate: { path: 'courseId' } },
+      { path: 'createdBy', select: 'name email' }
+    ]);
+
+    res.status(201).json({
+      message: 'Experiment added successfully',
+      experiment
+    });
+  } catch (error) {
+    console.error('Error creating experiment:', error);
+    res.status(400).json({ 
+      message: 'Failed to create experiment', 
+      error: error.message 
+    });
+  }
 });
 
 // Bulk add experiments
@@ -33,7 +81,7 @@ exports.bulkAddExperiments = asyncHandler(async (req, res) => {
 
   const experimentsWithCreator = experiments.map(exp => ({
     ...exp,
-    createdBy: req.userId ||req.user.id || req.user._id ||'admin'
+    createdBy: req.userId || req.user.id || req.user._id || 'admin'
   }));
 
   const savedExperiments = await Experiment.insertMany(experimentsWithCreator);
@@ -48,8 +96,65 @@ exports.bulkAddExperiments = asyncHandler(async (req, res) => {
 exports.getExperimentsBySemester = asyncHandler(async (req, res) => {
   const { semester } = req.params;
   const experiments = await Experiment.find({ semester })
-    .select('name subject description defaultChemicals')
-    .sort({ subject: 1, name: 1 });
+    .populate([
+      { 
+        path: 'subjectId', 
+        populate: { 
+          path: 'courseId', 
+          select: 'courseName courseCode' 
+        }
+      }
+    ])
+    .select('name subject subjectId description defaultChemicals')
+    .sort({ 'subjectId.name': 1, name: 1 });
+
+  res.status(200).json(experiments);
+});
+
+// Get experiments by subject
+exports.getExperimentsBySubject = asyncHandler(async (req, res) => {
+  const { subjectId } = req.params;
+  
+  const filter = { subjectId };
+  
+  const experiments = await Experiment.find(filter)
+    .populate([
+      { 
+        path: 'subjectId', 
+        populate: { 
+          path: 'courseId', 
+          select: 'courseName courseCode' 
+        }
+      }
+    ])
+    .select('name description defaultChemicals')
+    .sort({ name: 1 });
+
+  res.status(200).json(experiments);
+});
+
+// Get experiments by course
+exports.getExperimentsByCourse = asyncHandler(async (req, res) => {
+  const { courseId } = req.params;
+  
+  // First get subjects for this course
+  const subjects = await Subject.find({ courseId, isActive: true });
+  const subjectIds = subjects.map(s => s._id);
+  
+  const filter = { subjectId: { $in: subjectIds } };
+  
+  const experiments = await Experiment.find(filter)
+    .populate([
+      { 
+        path: 'subjectId', 
+        populate: { 
+          path: 'courseId', 
+          select: 'courseName courseCode' 
+        }
+      }
+    ])
+    .select('name description defaultChemicals')
+    .sort({ 'subjectId.name': 1, name: 1 });
 
   res.status(200).json(experiments);
 });
@@ -112,13 +217,19 @@ exports.getExperimentDetails = asyncHandler(async (req, res) => {
 
 // Update experiment
 exports.updateExperiment = asyncHandler(async (req, res) => {
-  const { experimentId } = req.params;
+  const { id } = req.params;
   const updates = req.body;
 
-  const experiment = await Experiment.findById(experimentId);
+  console.log('Update experiment - ID:', id);
+  console.log('Update experiment - updates:', updates);
+
+  const experiment = await Experiment.findById(id);
   if (!experiment) {
+    console.log('Experiment not found with ID:', id);
     return res.status(404).json({ message: 'Experiment not found' });
   }
+
+  console.log('Found experiment:', experiment.name);
 
   // Update fields
   Object.keys(updates).forEach(key => {
@@ -129,6 +240,8 @@ exports.updateExperiment = asyncHandler(async (req, res) => {
 
   experiment.updatedBy = req.userId ||req.user.id || req.user._id ||'admin';
   await experiment.save();
+
+  console.log('Experiment updated successfully');
 
   res.status(200).json({
     message: 'Experiment updated successfully',
@@ -167,7 +280,17 @@ exports.getSuggestedChemicals = asyncHandler(async (req, res) => {
 // Get all experiments
 exports.getExperiments = asyncHandler(async (req, res) => {
   const experiments = await Experiment.find()
-    .sort({ semester: 1, subject: 1, name: 1 });
+    .populate([
+      { 
+        path: 'subjectId', 
+        populate: { 
+          path: 'courseId', 
+          select: 'courseName courseCode' 
+        }
+      }
+    ])
+    .select('name description defaultChemicals subjectId subject')
+    .sort({ 'subjectId.name': 1, name: 1 });
   res.status(200).json(experiments);
 });
 
@@ -180,24 +303,6 @@ exports.getExperimentById = asyncHandler(async (req, res) => {
   res.status(200).json(experiment);
 });
 
-// Create new experiment
-exports.createExperiment = asyncHandler(async (req, res) => {
-  const { name, semester, subject, description, defaultChemicals } = req.body;
-
-  const experiment = await Experiment.create({
-    name,
-    semester,
-    subject,
-    description,
-    defaultChemicals,
-    createdBy: req.userId ||req.user.id || req.user._id ||'admin' 
-  });
-
-  res.status(201).json({
-    message: 'Experiment created successfully',
-    experiment
-  });
-});
 
 // Delete experiment
 exports.deleteExperiment = asyncHandler(async (req, res) => {

@@ -1191,13 +1191,14 @@ exports.allocateChemEquipGlass = asyncHandler(async (req, res) => {
 
   // --- 1. Enhanced Chemical Allocation with Fallback and Transaction Safety ---
   // Helper function for atomic chemical allocation with fallback
-  async function allocateChemicalWithFallback(chemical, labId, adminId, session) {
+  async function allocateChemicalWithFallback(chemical, labId, adminId, session, userRole) {
     const { chemicalName, quantity, unit, chemicalMasterId } = chemical;
     let remainingQty = quantity;
     let allocations = [];
     let totalAllocated = 0;
+    const isLabAssistant = userRole === 'lab_assistant';
 
-    console.log(`[allocateChemicalWithFallback] Processing ${chemicalName}, requested: ${quantity}`);
+    console.log(`[allocateChemicalWithFallback] Processing ${chemicalName}, requested: ${quantity}, userRole: ${userRole}`);
 
     // 1. Try to allocate from requested lab first
     try {
@@ -1229,8 +1230,8 @@ exports.allocateChemEquipGlass = asyncHandler(async (req, res) => {
       console.error(`[allocateChemicalWithFallback] Error allocating from lab ${labId}:`, err);
     }
 
-    // 2. If still need more, try Central Store
-    if (remainingQty > 0) {
+    // 2. If still need more, try Central Store (ONLY for admin and central_store_admin)
+    if (remainingQty > 0 && !isLabAssistant) {
       try {
         const centralStock = await ChemicalLive.findOne({ 
           chemicalName, 
@@ -1263,6 +1264,9 @@ exports.allocateChemEquipGlass = asyncHandler(async (req, res) => {
       } catch (err) {
         console.error(`[allocateChemicalWithFallback] Error allocating from central-store:`, err);
       }
+    } else if (remainingQty > 0 && isLabAssistant) {
+      // Lab Assistant: Warning about insufficient lab stock
+      console.log(`[allocateChemicalWithFallback] Lab Assistant restriction: Cannot access Central Store for ${chemicalName}. Lab stock insufficient by ${remainingQty} ${unit}`);
     }
 
     // 3. Create transaction records for each allocation source
@@ -1289,7 +1293,10 @@ exports.allocateChemEquipGlass = asyncHandler(async (req, res) => {
       remainingQty,
       totalAllocated,
       chemicalName,
-      requestedQuantity: quantity
+      requestedQuantity: quantity,
+      isLabAssistantRestricted: isLabAssistant && remainingQty > 0,
+      restrictionMessage: isLabAssistant && remainingQty > 0 ? 
+        `Lab Assistant cannot access Central Store. Insufficient lab stock: ${remainingQty} ${unit} short` : null
     };
   }
 
@@ -1331,7 +1338,8 @@ exports.allocateChemEquipGlass = asyncHandler(async (req, res) => {
           chemical, 
           labId, 
           adminId, 
-          chemicalSession
+          chemicalSession,
+          userRole  // Pass userRole to the helper function
         );
 
         if (allocationResult.success) {
@@ -1370,23 +1378,47 @@ exports.allocateChemEquipGlass = asyncHandler(async (req, res) => {
             });
           }
           
-          errors.push({
-            type: 'chemicals',
-            error: `Partial allocation for ${chemical.chemicalName}`,
-            details: {
-              requested: allocationResult.requestedQuantity,
-              allocated: allocationResult.totalAllocated,
-              remaining: allocationResult.remainingQty,
-              sources: allocationResult.allocations.map(a => ({
-                source: a.sourceName,
-                fromLabId: a.fromLabId,
-                quantity: a.quantity
-              })),
-              availableSources: allocationResult.allocations.length
-            }
-          });
+          // Handle errors differently for lab assistants vs admins
+          if (allocationResult.isLabAssistantRestricted) {
+            // Lab Assistant: Use warning instead of error for insufficient stock
+            errors.push({
+              type: 'chemicals',
+              error: `Lab Assistant Warning: ${allocationResult.restrictionMessage}`,
+              level: 'warning', // Mark as warning for lab assistants
+              details: {
+                requested: allocationResult.requestedQuantity,
+                allocated: allocationResult.totalAllocated,
+                remaining: allocationResult.remainingQty,
+                restriction: 'lab_assistant_no_central_access',
+                sources: allocationResult.allocations.map(a => ({
+                  source: a.sourceName,
+                  fromLabId: a.fromLabId,
+                  quantity: a.quantity
+                })),
+                availableSources: allocationResult.allocations.length
+              }
+            });
+          } else {
+            // Admin/Central Store Admin: Use error for insufficient stock
+            errors.push({
+              type: 'chemicals',
+              error: `Partial allocation for ${chemical.chemicalName}`,
+              level: 'error',
+              details: {
+                requested: allocationResult.requestedQuantity,
+                allocated: allocationResult.totalAllocated,
+                remaining: allocationResult.remainingQty,
+                sources: allocationResult.allocations.map(a => ({
+                  source: a.sourceName,
+                  fromLabId: a.fromLabId,
+                  quantity: a.quantity
+                })),
+                availableSources: allocationResult.allocations.length
+              }
+            });
+          }
           
-          console.log(`[allocateChemEquipGlass] Partial allocation for ${chemical.chemicalName}: ${allocationResult.totalAllocated}/${allocationResult.requestedQuantity}`);
+          console.log(`[allocateChemEquipGlass] ${userRole === 'lab_assistant' ? 'Warning' : 'Error'} - Partial allocation for ${chemical.chemicalName}: ${allocationResult.totalAllocated}/${allocationResult.requestedQuantity}`);
         }
       }
     }
@@ -1687,13 +1719,19 @@ exports.allocateChemEquipGlass = asyncHandler(async (req, res) => {
 
   console.log('[allocateChemEquipGlass] Final allocation status:', request.status, 'Errors:', errors);
 
-  res.status(errors.length > 0 ? 207 : 200).json({
+  // Separate warnings from errors for better UX
+  const warnings = errors.filter(e => e.level === 'warning');
+  const actualErrors = errors.filter(e => e.level !== 'warning');
+
+  res.status(actualErrors.length > 0 ? 207 : 200).json({
     msg: 'Unified allocation complete',
     chemResult,
     glassResult,
     equipResult,
-    errors,
-    request: filteredRequest
+    errors: actualErrors,
+    warnings: warnings, // Separate warnings for lab assistants
+    request: filteredRequest,
+    userRole: userRole // Include user role in response for frontend handling
   });
 });
 

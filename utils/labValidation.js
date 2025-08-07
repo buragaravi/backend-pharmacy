@@ -138,11 +138,65 @@ async function getLabOptions() {
   }
 }
 
+/**
+ * Validate lab assignment data
+ */
+async function validateLabAssignment(labId, permission = 'read') {
+  // Check if labId is valid and not central-store
+  if (labId === 'central-store') {
+    return {
+      valid: false,
+      error: 'Cannot assign central-store to lab assistants'
+    };
+  }
+
+  const isValidLab = await validateLabId(labId);
+  if (!isValidLab) {
+    return {
+      valid: false,
+      error: 'Invalid lab ID or lab is inactive'
+    };
+  }
+
+  // Validate permission
+  if (!['read', 'read_write'].includes(permission)) {
+    return {
+      valid: false,
+      error: 'Invalid permission. Must be "read" or "read_write"'
+    };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Get labs available for assignment (excludes central-store)
+ */
+async function getAssignableLabOptions() {
+  try {
+    const labs = await Lab.find({ 
+      isActive: true, 
+      labId: { $ne: 'central-store' } // Exclude central-store
+    }).select('labId labName description');
+    
+    return labs.map(lab => ({
+      value: lab.labId,
+      label: lab.labName,
+      description: lab.description
+    }));
+  } catch (error) {
+    console.error('Error fetching assignable labs:', error);
+    return [];
+  }
+}
+
 module.exports = {
   validateLabId,
   getLabInfo,
   getAllActiveLabIds,
   validateLabIdMiddleware,
   validateMultipleLabIds,
-  getLabOptions
+  getLabOptions,
+  validateLabAssignment,
+  getAssignableLabOptions
 };

@@ -7,7 +7,8 @@ const {
   deleteLab,
   bulkSync,
   consistencyCheck,
-  getLabStats
+  getLabStats,
+  getAssignableLabs
 } = require('../controllers/labController');
 
 const authenticate = require('../middleware/authMiddleware');
@@ -51,6 +52,15 @@ const labDescriptionValidation = [
 // @route   GET /api/labs
 // @access  Private
 router.get('/', authenticate, getLabs);
+
+// @desc    Get assignable labs (excludes central-store)
+// @route   GET /api/labs/assignable
+// @access  Private (Admin only)
+router.get('/assignable', 
+  authenticate, 
+  authorizeRole(['admin']), 
+  getAssignableLabs
+);
 
 // @desc    Get lab statistics
 // @route   GET /api/labs/stats

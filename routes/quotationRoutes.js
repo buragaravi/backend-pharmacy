@@ -12,10 +12,19 @@ router.post(
   authorizeRole('lab_assistant'),
   [
     check('labId', 'Lab ID is required').not().isEmpty(),
-    check('chemicals', 'At least one chemical is required').isArray({ min: 1 }),
-    check('chemicals.*.chemicalName', 'Chemical name is required').not().isEmpty(),
-    check('chemicals.*.quantity', 'Valid quantity is required').isNumeric().toFloat(),
-    check('chemicals.*.unit', 'Unit is required').not().isEmpty()
+    check('quotationType', 'Quotation type is required').isIn(['chemicals', 'equipment', 'glassware', 'mixed']),
+    check('chemicals').optional().isArray(),
+    check('equipment').optional().isArray(),
+    check('glassware').optional().isArray(),
+    check('chemicals.*.chemicalName').optional().not().isEmpty(),
+    check('chemicals.*.quantity').optional().isNumeric().toFloat(),
+    check('chemicals.*.unit').optional().not().isEmpty(),
+    check('equipment.*.equipmentName').optional().not().isEmpty(),
+    check('equipment.*.quantity').optional().isNumeric().toFloat(),
+    check('equipment.*.unit').optional().not().isEmpty(),
+    check('glassware.*.glasswareName').optional().not().isEmpty(),
+    check('glassware.*.quantity').optional().isNumeric().toFloat(),
+    check('glassware.*.unit').optional().not().isEmpty()
   ],
   quotationController.createLabQuotation
 );
@@ -33,12 +42,10 @@ router.post(
   authenticate,
   authorizeRole('central_store_admin'),
   [
-    check('vendorName', 'Vendor name is required').not().isEmpty(),
-    check('chemicals', 'At least one chemical is required').isArray({ min: 1 }),
-    check('chemicals.*.chemicalName', 'Chemical name is required').not().isEmpty(),
-    check('chemicals.*.quantity', 'Valid quantity is required').isNumeric().toFloat(),
-    check('chemicals.*.unit', 'Unit is required').not().isEmpty(),
-    check('chemicals.*.pricePerUnit', 'Price per unit is required').isNumeric().toFloat(),
+    check('quotationType', 'Quotation type is required').isIn(['chemicals', 'equipment', 'glassware', 'mixed']),
+    check('chemicals').optional().isArray(),
+    check('equipment').optional().isArray(),
+    check('glassware').optional().isArray(),
     check('totalPrice', 'Total price is required').isNumeric().toFloat()
   ],
   quotationController.createDraftQuotation
@@ -116,8 +123,15 @@ router.get(
 
 router.post('/:quotationId/comments', authenticate, quotationController.addQuotationComment);
 
-module.exports = router;
+// Chemical remarks and updates routes
+router.patch('/:quotationId/chemicals/remarks', authenticate, quotationController.addChemicalRemarks);
+router.patch('/:quotationId/chemicals', authenticate, quotationController.updateQuotationChemicals);
+router.patch('/:quotationId/chemicals/batch-remarks', authenticate, quotationController.updateAllChemicalRemarks);
 
-router.patch('/:quotationId/chemicals/remarks',  quotationController.addChemicalRemarks);
-router.patch('/:quotationId/chemicals',  quotationController.updateQuotationChemicals);
-router.patch('/:quotationId/chemicals/batch-remarks', quotationController.updateAllChemicalRemarks);
+// Comprehensive quotation update route - full editing capabilities
+router.put('/:quotationId/complete', authenticate, authorizeRole(['admin', 'central_store_admin']), quotationController.updateCompleteQuotation);
+
+// Admin-only status update route
+router.patch('/:quotationId/status', authenticate, authorizeRole(['admin']), quotationController.updateQuotationStatus);
+
+module.exports = router;

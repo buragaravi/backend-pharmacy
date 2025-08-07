@@ -6,61 +6,152 @@ const Transaction = require('../models/Transaction');
 const { validationResult } = require('express-validator');
 const asyncHandler = require('express-async-handler');
 
-// LAB ASSISTANT: Create quotation for deficient chemicals
+// LAB ASSISTANT: Create quotation for deficient chemicals/equipment/glassware
 exports.createLabQuotation = asyncHandler(async (req, res) => {
+  console.log('=== LAB QUOTATION DEBUG ===');
+  console.log('Request body:', JSON.stringify(req.body, null, 2));
+  console.log('quotationType:', req.body.quotationType);
+  console.log('chemicals:', req.body.chemicals);
+  console.log('equipment:', req.body.equipment);
+  console.log('glassware:', req.body.glassware);
+  
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-  const { labId, chemicals } = req.body;
+  const { labId, quotationType, chemicals, equipment, glassware } = req.body;
 
-  // Validate chemicals array
-  if (!Array.isArray(chemicals)) {
-    return res.status(400).json({ message: 'Chemicals must be an array' });
+  // Validate that at least one item type is provided
+  const hasChemicals = chemicals && Array.isArray(chemicals) && chemicals.length > 0;
+  const hasEquipment = equipment && Array.isArray(equipment) && equipment.length > 0;
+  const hasGlassware = glassware && Array.isArray(glassware) && glassware.length > 0;
+
+  console.log('Validation results:', { hasChemicals, hasEquipment, hasGlassware });
+
+  if (!hasChemicals && !hasEquipment && !hasGlassware) {
+    return res.status(400).json({ message: 'At least one item (chemical, equipment, or glassware) must be provided' });
   }
 
-  const quotation = new Quotation({
+  const quotationData = {
     createdByRole: 'lab_assistant',
     createdBy: req.user._id,
     labId,
-    chemicals: chemicals.map(chem => ({
+    quotationType: quotationType || 'chemicals', // Use provided type or default
+    status: 'pending',
+    comments: [] // Ensure comments array is initialized
+  };
+
+  // Add chemicals if provided
+  if (hasChemicals) {
+    quotationData.chemicals = chemicals.map(chem => ({
       chemicalName: chem.chemicalName,
       quantity: chem.quantity,
       unit: chem.unit,
-      remarks: chem.remarks // Save remarks if provided
-    })),
-    status: 'pending',
-    comments: [] // Ensure comments array is initialized
-  });
+      remarks: chem.remarks || ''
+    }));
+  }
 
+  // Add equipment if provided
+  if (hasEquipment) {
+    quotationData.equipment = equipment.map(eq => ({
+      equipmentName: eq.equipmentName,
+      quantity: eq.quantity,
+      unit: eq.unit,
+      specifications: eq.specifications || '',
+      remarks: eq.remarks || ''
+    }));
+  }
+
+  // Add glassware if provided
+  if (hasGlassware) {
+    quotationData.glassware = glassware.map(glass => ({
+      glasswareName: glass.glasswareName,
+      quantity: glass.quantity,
+      unit: glass.unit,
+      condition: glass.condition || 'new',
+      remarks: glass.remarks || ''
+    }));
+  }
+
+  console.log('Final quotation data:', JSON.stringify(quotationData, null, 2));
+
+  const quotation = new Quotation(quotationData);
   await quotation.save();
-  res.status(201).json({ msg: 'Lab quotation submitted', quotation });
+  
+  console.log('Saved quotation:', JSON.stringify(quotation, null, 2));
+  
+  res.status(201).json({ 
+    msg: 'Multi-item quotation submitted successfully', 
+    quotation 
+  });
 });
 
-// Central Store ADMIN: Create new draft quotation
+// Central Store ADMIN: Create new draft quotation for multiple item types
 exports.createDraftQuotation = asyncHandler(async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-  const { vendorName, chemicals, totalPrice, expectedDeliveryDate } = req.body;
+  const { quotationType, chemicals, equipment, glassware, totalPrice } = req.body;
 
-  const quotation = new Quotation({
+  // Validate that at least one item type is provided
+  const hasChemicals = chemicals && Array.isArray(chemicals) && chemicals.length > 0;
+  const hasEquipment = equipment && Array.isArray(equipment) && equipment.length > 0;
+  const hasGlassware = glassware && Array.isArray(glassware) && glassware.length > 0;
+
+  if (!hasChemicals && !hasEquipment && !hasGlassware) {
+    return res.status(400).json({ message: 'At least one item (chemical, equipment, or glassware) must be provided' });
+  }
+
+  const quotationData = {
     createdByRole: 'central_store_admin',
     createdBy: req.user._id,
-    vendorName,
-    chemicals: chemicals.map(chem => ({
+    quotationType: quotationType || 'chemicals',
+    totalPrice,
+    status: 'draft',
+    comments: [{ text: 'Draft created for review', author: req.user._id, role: req.user.role, createdAt: new Date() }]
+  };
+
+  // Add chemicals if provided
+  if (hasChemicals) {
+    quotationData.chemicals = chemicals.map(chem => ({
       chemicalName: chem.chemicalName,
       quantity: chem.quantity,
       unit: chem.unit,
       pricePerUnit: chem.pricePerUnit,
-      remarks: chem.remarks // Save remarks if provided
-    })),
-    totalPrice,
-    status: 'draft',
-    comments: [{ text: 'Draft created for review', author: req.user._id, role: req.user.role, createdAt: new Date() }],
-  });
+      remarks: chem.remarks || ''
+    }));
+  }
 
+  // Add equipment if provided
+  if (hasEquipment) {
+    quotationData.equipment = equipment.map(eq => ({
+      equipmentName: eq.equipmentName,
+      quantity: eq.quantity,
+      unit: eq.unit,
+      pricePerUnit: eq.pricePerUnit,
+      specifications: eq.specifications || '',
+      remarks: eq.remarks || ''
+    }));
+  }
+
+  // Add glassware if provided
+  if (hasGlassware) {
+    quotationData.glassware = glassware.map(glass => ({
+      glasswareName: glass.glasswareName,
+      quantity: glass.quantity,
+      unit: glass.unit,
+      pricePerUnit: glass.pricePerUnit,
+      condition: glass.condition || 'new',
+      remarks: glass.remarks || ''
+    }));
+  }
+
+  const quotation = new Quotation(quotationData);
   await quotation.save();
-  res.status(201).json({ msg: 'Draft quotation created', quotation });
+  
+  res.status(201).json({ 
+    msg: 'Multi-item draft quotation created successfully', 
+    quotation 
+  });
 });
 
 // Central Store ADMIN: Add chemical to existing draft
@@ -424,7 +515,8 @@ exports.getQuotationDetails = asyncHandler(async (req, res) => {
   const quotationId = new mongoose.Types.ObjectId(id);
   const quotation = await Quotation.findById(quotationId)
     .populate('createdBy', 'name email role')
-    .populate('labId', 'labName');
+    .populate('labId', 'labName')
+    .populate('comments.author', 'name role'); // Add comments population
 
   if (!quotation) {
     return res.status(404).json({ msg: 'Quotation not found' });
@@ -468,7 +560,17 @@ exports.addQuotationComment = asyncHandler(async (req, res) => {
     createdAt: new Date()
   });
   await quotation.save();
-  res.status(200).json({ message: 'Comment added', comments: quotation.comments });
+  
+  // Return populated quotation to get author details
+  const populatedQuotation = await Quotation.findById(quotationId)
+    .populate('createdBy', 'name email role')
+    .populate('labId', 'labName')
+    .populate('comments.author', 'name role');
+    
+  res.status(200).json({ 
+    message: 'Comment added successfully', 
+    quotation: populatedQuotation 
+  });
 });
 
 /**
@@ -652,6 +754,192 @@ exports.updateAllChemicalRemarks = async (req, res) => {
     console.error('Error applying standard remarks:', error);
     return res.status(500).json({
       message: 'Failed to apply standard remarks',
+      error: error.message
+    });
+  }
+};
+
+// Comprehensive quotation update controller with full editing capabilities
+exports.updateCompleteQuotation = async (req, res) => {
+  try {
+    const { quotationId } = req.params;
+    const { 
+      quotationType, 
+      status, 
+      chemicals, 
+      equipment, 
+      glassware, 
+      totalPrice,
+      comments 
+    } = req.body;
+
+    // Verify user role - allow admins and central store admins to edit content
+    if (!['admin', 'central_store_admin'].includes(req.user.role)) {
+      return res.status(403).json({ 
+        message: 'Only administrators can fully update quotations' 
+      });
+    }
+
+    // Find the quotation
+    const quotation = await Quotation.findById(quotationId);
+    if (!quotation) {
+      return res.status(404).json({ message: 'Quotation not found' });
+    }
+
+    // Store original data for comparison
+    const originalData = JSON.stringify({
+      quotationType: quotation.quotationType,
+      status: quotation.status,
+      chemicals: quotation.chemicals,
+      equipment: quotation.equipment,
+      glassware: quotation.glassware,
+      totalPrice: quotation.totalPrice
+    });
+
+    // Update quotation fields (exclude status for central_store_admin)
+    if (quotationType) quotation.quotationType = quotationType;
+    if (status && req.user.role === 'admin') {
+      quotation.status = status;
+    }
+    if (totalPrice !== undefined) quotation.totalPrice = totalPrice;
+
+    // Update chemicals array completely
+    if (chemicals && Array.isArray(chemicals)) {
+      quotation.chemicals = chemicals.map(chem => ({
+        chemicalName: chem.chemicalName,
+        quantity: Number(chem.quantity),
+        unit: chem.unit,
+        pricePerUnit: Number(chem.pricePerUnit) || 0,
+        remarks: chem.remarks || '',
+        specifications: chem.specifications || ''
+      }));
+    }
+
+    // Update equipment array completely
+    if (equipment && Array.isArray(equipment)) {
+      quotation.equipment = equipment.map(eq => ({
+        equipmentName: eq.equipmentName,
+        quantity: Number(eq.quantity),
+        unit: eq.unit,
+        pricePerUnit: Number(eq.pricePerUnit) || 0,
+        remarks: eq.remarks || '',
+        specifications: eq.specifications || ''
+      }));
+    }
+
+    // Update glassware array completely
+    if (glassware && Array.isArray(glassware)) {
+      quotation.glassware = glassware.map(glass => ({
+        glasswareName: glass.glasswareName,
+        quantity: Number(glass.quantity),
+        unit: glass.unit,
+        pricePerUnit: Number(glass.pricePerUnit) || 0,
+        remarks: glass.remarks || '',
+        condition: glass.condition || ''
+      }));
+    }
+
+    // Add audit comment
+    if (!Array.isArray(quotation.comments)) {
+      quotation.comments = [];
+    }
+
+    const updatedData = JSON.stringify({
+      quotationType: quotation.quotationType,
+      status: quotation.status,
+      chemicals: quotation.chemicals,
+      equipment: quotation.equipment,
+      glassware: quotation.glassware,
+      totalPrice: quotation.totalPrice
+    });
+
+    // Add system comment about the update
+    quotation.comments.push({
+      text: comments || `Quotation updated by ${req.user.name}`,
+      author: req.user._id,
+      role: req.user.role,
+      createdAt: new Date(),
+      isSystemMessage: true
+    });
+
+    // Update timestamps
+    quotation.updatedAt = new Date();
+
+    // Save the updated quotation
+    await quotation.save();
+
+    // Populate the response
+    const populatedQuotation = await Quotation.findById(quotationId)
+      .populate('createdBy', 'name email role')
+      .populate('labId', 'labName');
+
+    return res.status(200).json({
+      message: 'Quotation updated successfully',
+      quotation: populatedQuotation
+    });
+  } catch (error) {
+    console.error('Error updating complete quotation:', error);
+    return res.status(500).json({
+      message: 'Failed to update quotation',
+      error: error.message
+    });
+  }
+};
+
+// Admin-only status update controller
+exports.updateQuotationStatus = async (req, res) => {
+  try {
+    const { quotationId } = req.params;
+    const { status } = req.body;
+
+    // Only admin can update status
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ 
+        message: 'Only main administrators can update quotation status' 
+      });
+    }
+
+    // Validate status
+    const validStatuses = ['draft', 'pending', 'approved', 'rejected', 'allocated'];
+    if (!status || !validStatuses.includes(status)) {
+      return res.status(400).json({ 
+        message: 'Invalid status. Must be one of: ' + validStatuses.join(', ')
+      });
+    }
+
+    // Find and update quotation
+    const quotation = await Quotation.findById(quotationId);
+    if (!quotation) {
+      return res.status(404).json({ message: 'Quotation not found' });
+    }
+
+    const oldStatus = quotation.status;
+    quotation.status = status;
+
+    // Add status change comment
+    const statusComment = {
+      text: `Status changed from "${oldStatus}" to "${status}" by ${req.user.name}`,
+      author: req.user._id,
+      createdAt: new Date()
+    };
+    quotation.comments.push(statusComment);
+
+    await quotation.save();
+
+    // Populate the response
+    const populatedQuotation = await Quotation.findById(quotationId)
+      .populate('createdBy', 'name email role')
+      .populate('labId', 'labName')
+      .populate('comments.author', 'name role');
+
+    return res.status(200).json({
+      message: `Status updated to ${status}`,
+      quotation: populatedQuotation
+    });
+  } catch (error) {
+    console.error('Error updating quotation status:', error);
+    return res.status(500).json({
+      message: 'Failed to update status',
       error: error.message
     });
   }

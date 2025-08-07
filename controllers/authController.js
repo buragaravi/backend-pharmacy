@@ -9,13 +9,17 @@ const SibApiV3Sdk = require('sib-api-v3-sdk');
 // Register a new user
 exports.register = async (req, res) => {
   try {
+    // Log the request body for debugging
+    console.log('Register request body:', JSON.stringify(req.body, null, 2));
+    
     // Validate request body
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('Validation errors:', errors.array());
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { userId, name, email, password, role, labId } = req.body;
+    const { name, email, password, role, labId, labAssignments } = req.body;
 
     // Check if email already exists
     const userExists = await User.findOne({ email });
@@ -23,15 +27,27 @@ exports.register = async (req, res) => {
       return res.status(400).json({ msg: 'User already exists' });
     }
 
-    // For lab assistants, ensure labId is provided and not already taken
+    // For lab assistants, handle both new labAssignments and legacy labId
     if (role === 'lab_assistant') {
-      if (!labId) {
-        return res.status(400).json({ msg: 'Lab ID is required for lab assistants.' });
-      }
-
-      const labAssigned = await User.findOne({ role: 'lab_assistant', labId });
-      if (labAssigned) {
-        return res.status(400).json({ msg: `Lab ID ${labId} is already assigned to another lab assistant.` });
+      // Prefer labAssignments over labId
+      if (labAssignments && Array.isArray(labAssignments) && labAssignments.length > 0) {
+        // Validate lab assignments structure
+        for (const assignment of labAssignments) {
+          if (!assignment.labId || !assignment.labName) {
+            return res.status(400).json({ msg: 'Invalid lab assignment structure. Each assignment must have labId and labName.' });
+          }
+          if (!['read', 'read_write'].includes(assignment.permission)) {
+            return res.status(400).json({ msg: 'Invalid permission. Must be "read" or "read_write".' });
+          }
+        }
+      } else if (labId) {
+        // Legacy single lab assignment - check if already taken
+        const labAssigned = await User.findOne({ role: 'lab_assistant', labId });
+        if (labAssigned) {
+          return res.status(400).json({ msg: `Lab ID ${labId} is already assigned to another lab assistant.` });
+        }
+      } else {
+        return res.status(400).json({ msg: 'Lab assignment is required for lab assistants. Provide either labAssignments array or labId.' });
       }
     }
 
@@ -39,17 +55,50 @@ exports.register = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Create new user
-    const newUser = new User({
-      userId,
+    // Create user data object
+    const userData = {
       name,
       email,
       password: hashedPassword,
-      role,
-      ...(role === 'lab_assistant' && { labId }) // only include labId if role is lab_assistant
-    });
+      role
+    };
 
-    await newUser.save();
+    // Add lab assignment data based on what's provided
+    if (role === 'lab_assistant') {
+      if (labAssignments && Array.isArray(labAssignments) && labAssignments.length > 0) {
+        // Use new lab assignments structure
+        userData.labAssignments = labAssignments.map(assignment => ({
+          ...assignment,
+          assignedBy: null, // System assignment during registration
+          assignedAt: new Date(),
+          isActive: assignment.isActive !== false // default to true
+        }));
+      } else if (labId) {
+        // Use legacy single lab assignment
+        userData.labId = labId;
+      }
+    }
+
+    // Create new user
+    const newUser = new User(userData);
+
+    console.log('About to save user with data:', JSON.stringify(userData, null, 2));
+    
+    try {
+      await newUser.save();
+      console.log('User saved successfully');
+    } catch (saveError) {
+      console.error('Error saving user:', saveError);
+      if (saveError.name === 'ValidationError') {
+        const validationErrors = Object.values(saveError.errors).map(err => err.message);
+        return res.status(400).json({ 
+          msg: 'Validation failed', 
+          errors: validationErrors,
+          details: saveError.errors 
+        });
+      }
+      throw saveError; // Re-throw if it's not a validation error
+    }
 
     // Send welcome email with credentials
     try {
@@ -174,8 +223,28 @@ exports.register = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error(error.message);
-    res.status(500).send('Server error');
+    console.error('Register function error:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      errors: error.errors
+    });
+    
+    // Handle specific error types
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({ 
+        msg: 'Validation failed', 
+        errors: validationErrors,
+        details: error.errors 
+      });
+    }
+    
+    if (error.code === 11000) {
+      return res.status(400).json({ msg: 'User with this email already exists' });
+    }
+    
+    res.status(500).json({ msg: 'Server error', error: error.message });
   }
 };
 
@@ -219,13 +288,21 @@ exports.login = async (req, res) => {
   }
 };
 
-// Get current logged-in user// Get current logged-in user
+// Get current logged-in user with lab assignments for lab assistants
 exports.getCurrentUser = async (req, res) => {
   try {
     const user = await User.findById(req.userId).select('-password');
     if (!user) {
       return res.status(404).json({ msg: 'User not found' });
     }
+    
+    // For lab assistants, include active lab assignments
+    if (user.role === 'lab_assistant') {
+      const userWithAssignments = user.toObject();
+      userWithAssignments.activeLabAssignments = user.getActiveLabAssignments();
+      return res.json(userWithAssignments);
+    }
+    
     res.json(user);
   } catch (error) {
     console.error(error.message);

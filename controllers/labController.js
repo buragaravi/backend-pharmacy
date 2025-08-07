@@ -279,6 +279,24 @@ const getLabStats = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Get assignable labs (excludes central-store)
+// @route   GET /api/labs/assignable
+// @access  Private (Admin only)
+const getAssignableLabs = asyncHandler(async (req, res) => {
+  const labs = await Lab.find({ 
+    isActive: true, 
+    labId: { $ne: 'central-store' } 
+  })
+    .sort({ labName: 1 })
+    .select('labId labName description');
+
+  res.status(200).json({
+    success: true,
+    count: labs.length,
+    data: labs
+  });
+});
+
 module.exports = {
   getLabs,
   getLab,
@@ -287,5 +305,6 @@ module.exports = {
   deleteLab,
   bulkSync,
   consistencyCheck,
-  getLabStats
+  getLabStats,
+  getAssignableLabs
 };

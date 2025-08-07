@@ -88,7 +88,7 @@ courseSchema.index({ 'batches.batchCode': 1 });
 
 // Virtual to get active batches only
 courseSchema.virtual('activeBatches').get(function() {
-  return this.batches.filter(batch => batch.isActive);
+  return this.batches ? this.batches.filter(batch => batch.isActive) : [];
 });
 
 // Ensure virtual fields are serialized

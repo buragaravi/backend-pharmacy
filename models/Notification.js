@@ -13,7 +13,7 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['info', 'warning', 'error', 'request','request_edited'],
+      enum: ['info', 'warning', 'error', 'request','request_edited', 'audit'],
       required: true,
     },
     read: {

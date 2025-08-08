@@ -25,7 +25,7 @@ If you prefer to run the migration through the API:
 
 ```bash
 # POST request to your running server
-curl -X POST http://localhost:5000/api/sync/migrate-central-lab-to-store \
+curl -X POST http://localhost:7000/api/sync/migrate-central-lab-to-store \
   -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
   -H "Content-Type: application/json"
 ```

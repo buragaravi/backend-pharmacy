@@ -114,7 +114,7 @@ exports.addChemicalsToCentral = asyncHandler(async (req, res) => {
   const savedChemicals = [];
 
   for (const chem of chemicals) {
-    let { chemicalName, quantity, unit, expiryDate, vendor, pricePerUnit, department } = chem;
+    let { productId, chemicalName, quantity, unit, expiryDate, vendor, pricePerUnit, department } = chem;
     if (expiryDate) {
       expiryDate = new Date(expiryDate);
     }
@@ -154,7 +154,7 @@ exports.addChemicalsToCentral = asyncHandler(async (req, res) => {
         // All existing batches have expiry, create a new no-expiry batch (base name, no suffix)
         const masterEntry = await createNewChemical(
           chemicalName, quantity, unit, null,
-          batchId, vendor, pricePerUnit, department, req.userId
+          batchId, vendor, pricePerUnit, department, req.userId, productId
         );
         savedChemicals.push(masterEntry);
         continue;
@@ -162,7 +162,7 @@ exports.addChemicalsToCentral = asyncHandler(async (req, res) => {
         // No existing batch, create new no-expiry batch
         const masterEntry = await createNewChemical(
           chemicalName, quantity, unit, null,
-          batchId, vendor, pricePerUnit, department, req.userId
+          batchId, vendor, pricePerUnit, department, req.userId, productId
         );
         savedChemicals.push(masterEntry);
         continue;
@@ -179,7 +179,7 @@ exports.addChemicalsToCentral = asyncHandler(async (req, res) => {
     if (existingChems.length === 0) {
       const masterEntry = await createNewChemical(
         chemicalName, quantity, unit, expiryDate,
-        batchId, vendor, pricePerUnit, department, req.userId
+        batchId, vendor, pricePerUnit, department, req.userId, productId
       );
       savedChemicals.push(masterEntry);
       continue;
@@ -225,7 +225,7 @@ exports.addChemicalsToCentral = asyncHandler(async (req, res) => {
 
         const masterEntry = await createNewChemical(
           suffixedName, quantity, unit, expiryDate,
-          batchId, vendor, pricePerUnit, department, req.userId
+          batchId, vendor, pricePerUnit, department, req.userId, productId
         );
         savedChemicals.push(masterEntry);
       } else {
@@ -251,7 +251,7 @@ exports.addChemicalsToCentral = asyncHandler(async (req, res) => {
         // Create new with base name
         const masterEntry = await createNewChemical(
           chemicalName, quantity, unit, expiryDate,
-          batchId, vendor, pricePerUnit, department, req.userId
+          batchId, vendor, pricePerUnit, department, req.userId, productId
         );
         savedChemicals.push(masterEntry);
       }
@@ -266,8 +266,36 @@ exports.addChemicalsToCentral = asyncHandler(async (req, res) => {
 });
 
 // Helper: Create new chemical (master + live)
-async function createNewChemical(name, qty, unit, expiry, batchId, vendor, price, dept, userId) {
+async function createNewChemical(name, qty, unit, expiry, batchId, vendor, price, dept, userId, productId = null) {
+  // Find or create Product for this chemical
+  const Product = require('../models/Product');
+  let product;
+  
+  if (productId) {
+    // Use provided productId
+    product = await Product.findById(productId);
+    if (!product) {
+      throw new Error(`Product with ID ${productId} not found`);
+    }
+  } else {
+    // Find or create Product for this chemical
+    product = await Product.findOne({ 
+      name: name.split(' - ')[0], // Remove any suffix for product lookup
+      category: 'chemical' 
+    });
+    
+    if (!product) {
+      product = await Product.create({
+        name: name.split(' - ')[0],
+        unit: unit,
+        category: 'chemical',
+        thresholdValue: 10 // Default threshold for chemicals
+      });
+    }
+  }
+  
   const masterEntry = await ChemicalMaster.create({
+    productId: product._id,
     chemicalName: name,
     quantity: qty,
     unit,

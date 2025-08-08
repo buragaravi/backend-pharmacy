@@ -81,6 +81,7 @@ const createInvoice = asyncHandler(async (req, res) => {
   // Post-processing: Add chemicals to Chemical Master (only for chemical invoices)
   try {
     const chemicals = enrichedItems.map(item => ({
+      productId: item.productId,
       chemicalName: item.name,
       quantity: item.quantity,
       unit: item.unit,

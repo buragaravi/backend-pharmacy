@@ -21,6 +21,24 @@ const indentSchema = new mongoose.Schema({
       remarks: { type: String }, // Added field for chemical-specific remarks
     }
   ],
+  equipment: [
+    {
+      equipmentName: { type: String, required: true },
+      quantity: { type: Number, required: true },
+      unit: { type: String, required: true },
+      specifications: { type: String },
+      remarks: { type: String },
+    }
+  ],
+  glassware: [
+    {
+      glasswareName: { type: String, required: true },
+      quantity: { type: Number, required: true },
+      unit: { type: String, required: true },
+      condition: { type: String, enum: ['new', 'good', 'fair'], default: 'new' },
+      remarks: { type: String },
+    }
+  ],
   totalPrice: { type: Number },
   status: {
     type: String,

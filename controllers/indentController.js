@@ -6,32 +6,63 @@ const Transaction = require('../models/Transaction');
 const { validationResult } = require('express-validator');
 const asyncHandler = require('express-async-handler');
 
-// LAB ASSISTANT: Create indent for deficient chemicals
+// LAB ASSISTANT: Create indent for deficient chemicals, equipment, and glassware
 exports.createLabIndent = asyncHandler(async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-  const { labId, chemicals } = req.body;
+  const { labId, chemicals, equipment, glassware } = req.body;
 
-  // Validate chemicals array
-  if (!Array.isArray(chemicals)) {
-    return res.status(400).json({ message: 'Chemicals must be an array' });
+  // Validate that at least one type of item is provided
+  const hasChemicals = chemicals && Array.isArray(chemicals) && chemicals.length > 0;
+  const hasEquipment = equipment && Array.isArray(equipment) && equipment.length > 0;
+  const hasGlassware = glassware && Array.isArray(glassware) && glassware.length > 0;
+
+  if (!hasChemicals && !hasEquipment && !hasGlassware) {
+    return res.status(400).json({ message: 'At least one type of item (chemicals, equipment, or glassware) is required' });
   }
 
-  const indent = new Indent({
+  const indentData = {
     createdByRole: 'lab_assistant',
     createdBy: req.user._id,
     labId,
-    chemicals: chemicals.map(chem => ({
+    status: 'pending',
+    comments: [] // Ensure comments array is initialized
+  };
+
+  // Add chemicals if provided
+  if (hasChemicals) {
+    indentData.chemicals = chemicals.map(chem => ({
       chemicalName: chem.chemicalName,
       quantity: chem.quantity,
       unit: chem.unit,
-      remarks: chem.remarks // Save remarks if provided
-    })),
-    status: 'pending',
-    comments: [] // Ensure comments array is initialized
-  });
+      remarks: chem.remarks || ''
+    }));
+  }
 
+  // Add equipment if provided
+  if (hasEquipment) {
+    indentData.equipment = equipment.map(eq => ({
+      equipmentName: eq.equipmentName,
+      quantity: eq.quantity,
+      unit: eq.unit,
+      specifications: eq.specifications || '',
+      remarks: eq.remarks || ''
+    }));
+  }
+
+  // Add glassware if provided
+  if (hasGlassware) {
+    indentData.glassware = glassware.map(glass => ({
+      glasswareName: glass.glasswareName,
+      quantity: glass.quantity,
+      unit: glass.unit,
+      condition: glass.condition || 'new',
+      remarks: glass.remarks || ''
+    }));
+  }
+
+  const indent = new Indent(indentData);
   await indent.save();
   res.status(201).json({ msg: 'Lab indent submitted', indent });
 });

@@ -392,6 +392,7 @@ app.use('/api/others', require('./routes/otherProductRoutes'));
 app.use('/api/sync', require('./routes/syncRoutes')); // Add sync routes for chemical-product integration
 app.use('/api/labs', require('./routes/labRoutes')); // Add lab management routes
 app.use('/api/requirements', require('./routes/requirementRoutes')); // Add requirement management routes
+app.use('/api/audit', require('./routes/auditRoutes')); // Add audit management routes
 
 // Error Handler
 app.use(errorHandler);

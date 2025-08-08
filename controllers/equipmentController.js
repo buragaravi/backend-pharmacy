@@ -298,18 +298,73 @@ const getEquipmentStock = asyncHandler(async (req, res) => {
   res.status(200).json(stock);
 });
 
-// Get all live equipment from all labs (detailed information)
+// Get all live equipment from all labs (detailed information) - with pagination
 const getCentralAvailableEquipment = asyncHandler(async (req, res) => {
   try {
-    console.log('Fetching all equipment from all labs...');
+    const { 
+      page = 1, 
+      limit = 50, 
+      search = '', 
+      status = '', 
+      labId = '', 
+      sortBy = 'createdAt', 
+      sortOrder = 'desc' 
+    } = req.query;
     
-    // Fetch ALL equipment from ALL labs - no labId filter
-    const stock = await EquipmentLive.find({})
+    console.log('Fetching equipment with pagination:', { page, limit, search, status, labId });
+    
+    // Build filter query
+    const filter = {};
+    
+    if (status && status !== 'all') {
+      filter.status = status;
+    }
+    
+    if (labId && labId !== 'all') {
+      filter.labId = labId;
+    }
+    
+    // Build search query
+    let searchQuery = {};
+    if (search && search.trim()) {
+      const searchRegex = new RegExp(search.trim(), 'i');
+      searchQuery = {
+        $or: [
+          { name: searchRegex },
+          { itemId: searchRegex },
+          { variant: searchRegex },
+          { vendor: searchRegex },
+          { department: searchRegex }
+        ]
+      };
+    }
+    
+    // Combine filters
+    const finalFilter = { ...filter, ...searchQuery };
+    
+    // Build sort object
+    const sortObj = {};
+    sortObj[sortBy] = sortOrder === 'desc' ? -1 : 1;
+    
+    // Calculate pagination
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+    
+    // Get total count for pagination info
+    const totalItems = await EquipmentLive.countDocuments(finalFilter);
+    const totalPages = Math.ceil(totalItems / limitNum);
+    
+    // Fetch paginated data
+    const stock = await EquipmentLive.find(finalFilter)
       .populate('productId', 'name unit variant category subCategory thresholdValue')
       .populate('addedBy', 'name email')
-      .sort({ createdAt: -1 });
-
-    console.log(`Found ${stock.length} equipment items across all labs`);
+      .sort(sortObj)
+      .skip(skip)
+      .limit(limitNum)
+      .lean(); // Use lean for better performance
+    
+    console.log(`Found ${stock.length} equipment items on page ${pageNum} of ${totalPages}`);
 
     // Ensure name/unit/variant are always present (from product if missing)
     const result = stock.map(item => {
@@ -364,7 +419,48 @@ const getCentralAvailableEquipment = asyncHandler(async (req, res) => {
       };
     });
 
-    // Group by lab for better organization
+    // Calculate summary statistics from total database (not just current page)
+    const totalSummary = await EquipmentLive.aggregate([
+      {
+        $match: finalFilter
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          available: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "Available"] }, 1, 0]
+            }
+          },
+          issued: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "Issued"] }, 1, 0]
+            }
+          },
+          maintenance: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "Maintenance"] }, 1, 0]
+            }
+          },
+          damaged: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "Damaged"] }, 1, 0]
+            }
+          }
+        }
+      }
+    ]);
+
+    const totalStats = totalSummary[0] || {
+      total: 0,
+      available: 0,
+      issued: 0,
+      maintenance: 0,
+      damaged: 0
+    };
+
+    // Group by lab for better organization (from current page)
     const groupedByLab = result.reduce((acc, item) => {
       const lab = item.labId || 'unknown';
       if (!acc[lab]) {
@@ -374,32 +470,58 @@ const getCentralAvailableEquipment = asyncHandler(async (req, res) => {
       return acc;
     }, {});
 
-    // Calculate summary statistics
-    const summary = {
-      total: result.length,
-      byLab: Object.keys(groupedByLab).map(lab => ({
-        labId: lab,
-        count: groupedByLab[lab].length,
-        available: groupedByLab[lab].filter(item => item.status === 'Available').length,
-        issued: groupedByLab[lab].filter(item => item.status === 'Issued').length,
-        maintenance: groupedByLab[lab].filter(item => item.status === 'Maintenance').length,
-        damaged: groupedByLab[lab].filter(item => item.status === 'Damaged').length
-      })),
-      byStatus: {
-        available: result.filter(item => item.status === 'Available').length,
-        issued: result.filter(item => item.status === 'Issued').length,
-        maintenance: result.filter(item => item.status === 'Maintenance').length,
-        damaged: result.filter(item => item.status === 'Damaged').length
+    // Current page summary statistics
+    const pageSummary = {
+      currentPage: {
+        total: result.length,
+        byLab: Object.keys(groupedByLab).map(lab => ({
+          labId: lab,
+          count: groupedByLab[lab].length,
+          available: groupedByLab[lab].filter(item => item.status === 'Available').length,
+          issued: groupedByLab[lab].filter(item => item.status === 'Issued').length,
+          maintenance: groupedByLab[lab].filter(item => item.status === 'Maintenance').length,
+          damaged: groupedByLab[lab].filter(item => item.status === 'Damaged').length
+        })),
+        byStatus: {
+          available: result.filter(item => item.status === 'Available').length,
+          issued: result.filter(item => item.status === 'Issued').length,
+          maintenance: result.filter(item => item.status === 'Maintenance').length,
+          damaged: result.filter(item => item.status === 'Damaged').length
+        }
+      },
+      total: {
+        items: totalStats.total,
+        byStatus: {
+          available: totalStats.available,
+          issued: totalStats.issued,
+          maintenance: totalStats.maintenance,
+          damaged: totalStats.damaged
+        }
       }
     };
 
-    console.log('Equipment summary:', summary);
+    console.log('Equipment summary:', pageSummary);
 
     res.status(200).json({
       success: true,
       data: result,
       groupedByLab,
-      summary
+      summary: pageSummary,
+      pagination: {
+        currentPage: pageNum,
+        totalPages,
+        totalItems,
+        itemsPerPage: limitNum,
+        hasNextPage: pageNum < totalPages,
+        hasPrevPage: pageNum > 1
+      },
+      filters: {
+        search,
+        status,
+        labId,
+        sortBy,
+        sortOrder
+      }
     });
   } catch (err) {
     console.error('Failed to fetch equipment:', err);

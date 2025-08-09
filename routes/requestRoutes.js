@@ -128,6 +128,13 @@ router.put('/:id/allocate-unified',
   requestController.allocateChemEquipGlass
 );
 
+// Grant remaining allocation permission (Admin only)
+router.put('/:id/grant-remaining-allocation-permission',
+  authenticate,
+  authorizeRole(['admin']),
+  requestController.grantRemainingAllocationPermission
+);
+
 router.put('/:id/complete', 
   authenticate, 
   authorizeRole(['lab_assistant', 'central_store_admin','admin']), 

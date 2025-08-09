@@ -207,6 +207,16 @@ const requestSchema = new mongoose.Schema(
         }
       }
     ],
+    // Remaining allocation permission for partially fulfilled requests
+    remainingAllocationPermission: {
+      granted: { type: Boolean, default: false },
+      grantedBy: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'User' 
+      },
+      grantedAt: { type: Date },
+      reason: { type: String }
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

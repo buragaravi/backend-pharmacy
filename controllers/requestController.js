@@ -1162,14 +1162,34 @@ exports.allocateChemEquipGlass = asyncHandler(async (req, res) => {
     console.log('[allocateChemEquipGlass] Date validation warnings:', dateValidationResult.warnings);
   }
 
-  // *** Status guard - only allow allocation of approved requests ***
-  if (request.status !== 'approved') {
-    console.log('[allocateChemEquipGlass] Request not approved for allocation:', request.status);
+  // *** Status guard - allow allocation of approved requests or partially_fulfilled requests with permission ***
+  const allowedStatuses = ['approved'];
+  
+  // Allow admin to allocate partially fulfilled requests
+  if (req.user.role === 'admin') {
+    allowedStatuses.push('partially_fulfilled');
+  }
+  
+  if (!allowedStatuses.includes(request.status)) {
+    console.log('[allocateChemEquipGlass] Request status not allowed for allocation:', request.status);
     return res.status(400).json({ 
-      message: `Cannot allocate resources to request with status: ${request.status}. Only approved requests can be allocated.`,
+      message: `Cannot allocate resources to request with status: ${request.status}. ${req.user.role === 'admin' ? 'Allowed statuses: approved, partially_fulfilled' : 'Allowed status: approved'}`,
       currentStatus: request.status,
-      allowedStatus: 'approved'
+      allowedStatuses: allowedStatuses
     });
+  }
+
+  // *** Additional permission check for partially_fulfilled requests ***
+  if (request.status === 'partially_fulfilled') {
+    if (!request.remainingAllocationPermission?.granted) {
+      console.log('[allocateChemEquipGlass] Remaining allocation permission not granted for partially fulfilled request:', request._id);
+      return res.status(403).json({ 
+        message: 'Admin permission required before allocating remaining resources for partially fulfilled request',
+        permissionStatus: 'not_granted',
+        requestId: request._id
+      });
+    }
+    console.log('[allocateChemEquipGlass] Remaining allocation permission verified for partially fulfilled request');
   }
   let experimentIds = [];
   if (request && request.experiments) {
@@ -1191,7 +1211,7 @@ exports.allocateChemEquipGlass = asyncHandler(async (req, res) => {
 
   // --- 1. Enhanced Chemical Allocation with Fallback and Transaction Safety ---
   // Helper function for atomic chemical allocation with fallback
-  async function allocateChemicalWithFallback(chemical, labId, adminId, session, userRole) {
+  async function allocateChemicalWithFallback(chemical, labId, adminId, userRole) {
     const { chemicalName, quantity, unit, chemicalMasterId } = chemical;
     let remainingQty = quantity;
     let allocations = [];
@@ -1202,15 +1222,15 @@ exports.allocateChemEquipGlass = asyncHandler(async (req, res) => {
 
     // 1. Try to allocate from requested lab first
     try {
-      const labStock = await ChemicalLive.findOne({ chemicalName, labId }).session(session);
+      const labStock = await ChemicalLive.findOne({ chemicalName, labId });
       if (labStock && labStock.quantity > 0) {
         const allocateFromLab = Math.min(labStock.quantity, remainingQty);
         
-        // Atomic update with session
+        // Atomic update
         const updatedLabStock = await ChemicalLive.findOneAndUpdate(
           { _id: labStock._id, quantity: { $gte: allocateFromLab } },
           { $inc: { quantity: -allocateFromLab } },
-          { new: true, session }
+          { new: true }
         );
         
         if (updatedLabStock) {
@@ -1236,16 +1256,16 @@ exports.allocateChemEquipGlass = asyncHandler(async (req, res) => {
         const centralStock = await ChemicalLive.findOne({ 
           chemicalName, 
           labId: 'central-store' 
-        }).session(session);
+        });
         
         if (centralStock && centralStock.quantity > 0) {
           const allocateFromCentral = Math.min(centralStock.quantity, remainingQty);
           
-          // Atomic update with session
+          // Atomic update
           const updatedCentralStock = await ChemicalLive.findOneAndUpdate(
             { _id: centralStock._id, quantity: { $gte: allocateFromCentral } },
             { $inc: { quantity: -allocateFromCentral } },
-            { new: true, session }
+            { new: true }
           );
           
           if (updatedCentralStock) {
@@ -1271,7 +1291,7 @@ exports.allocateChemEquipGlass = asyncHandler(async (req, res) => {
 
     // 3. Create transaction records for each allocation source
     const transactionPromises = allocations.map(allocation => 
-      Transaction.create([{
+      Transaction.create({
         transactionType: 'transfer',
         chemicalName,
         fromLabId: allocation.fromLabId,
@@ -1282,7 +1302,7 @@ exports.allocateChemEquipGlass = asyncHandler(async (req, res) => {
         createdBy: adminId,
         timestamp: new Date(),
         notes: `Allocation from ${allocation.sourceName} (${allocation.quantity}/${quantity} total requested)`
-      }], { session })
+      })
     );
 
     await Promise.all(transactionPromises);
@@ -1300,11 +1320,8 @@ exports.allocateChemEquipGlass = asyncHandler(async (req, res) => {
     };
   }
 
-  // Main chemical allocation logic with session management
-  const chemicalSession = await mongoose.startSession();
+  // Main chemical allocation logic
   try {
-    chemicalSession.startTransaction();
-    
     for (const experiment of request.experiments) {
       for (const chemical of experiment.chemicals) {
         if (chemical.isAllocated) continue;
@@ -1338,7 +1355,6 @@ exports.allocateChemEquipGlass = asyncHandler(async (req, res) => {
           chemical, 
           labId, 
           adminId, 
-          chemicalSession,
           userRole  // Pass userRole to the helper function
         );
 
@@ -1423,19 +1439,15 @@ exports.allocateChemEquipGlass = asyncHandler(async (req, res) => {
       }
     }
     
-    await chemicalSession.commitTransaction();
-    console.log('[allocateChemEquipGlass] Chemical allocation session committed successfully');
+    console.log('[allocateChemEquipGlass] Chemical allocation completed successfully');
     
   } catch (err) {
-    await chemicalSession.abortTransaction();
-    console.error('[allocateChemEquipGlass] Chemical allocation session aborted due to error:', err);
+    console.error('[allocateChemEquipGlass] Chemical allocation failed due to error:', err);
     errors.push({ 
       type: 'chemicals', 
       error: `Chemical allocation failed: ${err.message}`,
       stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
-  } finally {
-    chemicalSession.endSession();
   }
 
   // --- 2. Allocate Glassware (if present in body) ---
@@ -2500,5 +2512,55 @@ exports.updateItemDisabledStatus = asyncHandler(async (req, res) => {
     totalErrors: errors.length
   });
 });
+
+// @route   PUT /api/requests/:id/grant-remaining-allocation-permission
+// @desc    Grant permission for remaining allocation (Admin only)
+// @access  Private (Admin only)
+const grantRemainingAllocationPermission = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { reason = 'Admin granted permission for remaining allocation' } = req.body;
+  const adminId = req.user._id;
+
+  // 1. Verify admin permissions
+  if (req.user.role !== 'admin') {
+    console.log('ERROR: Admin access required for granting remaining allocation permission. User role:', req.user.role);
+    return res.status(403).json({ message: 'Admin access required' });
+  }
+
+  // 2. Find the request
+  const request = await Request.findById(id);
+  if (!request) {
+    return res.status(404).json({ message: 'Request not found' });
+  }
+
+  // 3. Verify request is partially fulfilled
+  if (request.status !== 'partially_fulfilled') {
+    return res.status(400).json({ 
+      message: 'Can only grant remaining allocation permission for partially fulfilled requests',
+      currentStatus: request.status
+    });
+  }
+
+  // 4. Grant permission
+  request.remainingAllocationPermission = {
+    granted: true,
+    grantedBy: adminId,
+    grantedAt: new Date(),
+    reason
+  };
+
+  await request.save();
+
+  // 5. Log the action
+  console.log(`[grantRemainingAllocationPermission] Admin ${adminId} granted remaining allocation permission for request ${id}`);
+
+  res.json({
+    message: 'Remaining allocation permission granted successfully',
+    requestId: id,
+    permission: request.remainingAllocationPermission
+  });
+});
+
+exports.grantRemainingAllocationPermission = grantRemainingAllocationPermission;
 
 module.exports = exports;

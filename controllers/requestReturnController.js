@@ -52,8 +52,16 @@ exports.returnChemEquipGlass = asyncHandler(async (req, res) => {
       const chemical = (experiment.chemicals || []).find(chem =>
         chem.chemicalName === chemicalName && (!chemicalMasterId || (chem.chemicalMasterId && chem.chemicalMasterId.equals(chemicalMasterId)))
       );
-      if (!chemical || !chemical.isAllocated) {
+      
+      // Check if chemical is allocated by checking both isAllocated flag and allocation history
+      const hasAllocations = chemical && (chemical.isAllocated || 
+        (chemical.allocationHistory && Array.isArray(chemical.allocationHistory) && 
+         chemical.allocationHistory.some(allocation => allocation.quantity > 0)));
+      
+      if (!chemical || !hasAllocations) {
         console.log(`[CHEMICAL] Not allocated or not found: ${chemicalName}`);
+        console.log(`[CHEMICAL] Chemical object:`, JSON.stringify(chemical, null, 2));
+        console.log(`[CHEMICAL] hasAllocations:`, hasAllocations);
         errors.push({ type: 'chemicals', error: `Chemical ${chemicalName} not allocated or not found in experiment` });
         continue;
       }
@@ -179,9 +187,16 @@ exports.returnChemEquipGlass = asyncHandler(async (req, res) => {
         allocationHistoryCount: (g.allocationHistory || []).length
       })));
       const glass = (experiment.glassware || []).find(gl => gl.glasswareId.equals(glasswareId));
-      if (!glass || !glass.isAllocated) {
+      
+      // Check if glassware is allocated by checking both isAllocated flag and allocation history
+      const hasAllocations = glass && (glass.isAllocated || 
+        (glass.allocationHistory && Array.isArray(glass.allocationHistory) && 
+         glass.allocationHistory.some(allocation => allocation.quantity > 0)));
+      
+      if (!glass || !hasAllocations) {
         console.log(`[GLASSWARE] Not allocated or not found: ${glasswareId}`);
         console.log(`[GLASSWARE] Glass object:`, JSON.stringify(glass, null, 2));
+        console.log(`[GLASSWARE] hasAllocations:`, hasAllocations);
         errors.push({ type: 'glassware', error: `Glassware ${glasswareId} not allocated or not found in experiment` });
         continue;
       }
@@ -337,8 +352,22 @@ exports.returnChemEquipGlass = asyncHandler(async (req, res) => {
         continue;
       }
       const equip = (experiment.equipment || []).find(eq => eq.name === name && eq.variant === variant);
-      if (!equip || !equip.isAllocated) {
-        console.log(`[EQUIPMENT] Not allocated or not found: ${name} (${variant})`);
+      if (!equip) {
+        console.log(`[EQUIPMENT] Equipment not found: ${name} (${variant})`);
+        errors.push({ type: 'equipment', error: `Equipment ${name} (${variant}) not found in experiment` });
+        continue;
+      }
+      
+      // Check if equipment is allocated by checking both isAllocated flag and allocationHistory
+      let hasAllocations = equip.isAllocated;
+      if (!hasAllocations && Array.isArray(equip.allocationHistory) && equip.allocationHistory.length > 0) {
+        // Check if there are any allocations with quantity > 0
+        hasAllocations = equip.allocationHistory.some(allocation => (allocation.quantity || 0) > 0);
+      }
+      
+      if (!hasAllocations) {
+        console.log(`[EQUIPMENT] Not allocated: ${name} (${variant})`);
+        console.log(`[EQUIPMENT] isAllocated: ${equip.isAllocated}, allocationHistory length: ${(equip.allocationHistory || []).length}`);
         errors.push({ type: 'equipment', error: `Equipment ${name} (${variant}) not allocated or not found in experiment` });
         continue;
       }
@@ -346,10 +375,17 @@ exports.returnChemEquipGlass = asyncHandler(async (req, res) => {
       let latestAllocation = null;
       console.log(`[EQUIPMENT] Checking allocation history for ${name} (${variant})`);
       if (Array.isArray(equip.allocationHistory) && equip.allocationHistory.length > 0) {
-        // Only consider the latest allocationHistory entry
+        // Collect itemIds from ALL allocations, not just the latest
+        allocatedItemIds = [];
+        for (const allocation of equip.allocationHistory) {
+          if (Array.isArray(allocation.itemIds)) {
+            allocatedItemIds.push(...allocation.itemIds);
+          }
+        }
+        // Remove duplicates and empty strings
+        allocatedItemIds = [...new Set(allocatedItemIds)].filter(id => id && typeof id === 'string');
         latestAllocation = equip.allocationHistory[equip.allocationHistory.length - 1];
-        allocatedItemIds = Array.isArray(latestAllocation.itemIds) ? latestAllocation.itemIds : [];
-        console.log(`[EQUIPMENT] Latest allocation found for ${name} (${variant}):`, latestAllocation);
+        console.log(`[EQUIPMENT] All allocated itemIds from history for ${name} (${variant}):`, allocatedItemIds);
       } else {
         console.log(`[EQUIPMENT] No allocation history found for ${name} (${variant}), using itemIds directly.`);
         allocatedItemIds = Array.isArray(equip.itemIds) ? equip.itemIds : [];
@@ -358,11 +394,12 @@ exports.returnChemEquipGlass = asyncHandler(async (req, res) => {
       console.log(`[EQUIPMENT] Allocated ItemIds: ${allocatedItemIds}`);
       let returned_item_ids = [], invalid_item_ids = [];
       for (const itemId of itemIds) {
-        if (typeof itemId !== 'string') {
-          console.log(`[EQUIPMENT] Invalid itemId: ${itemId}`);
-          invalid_item_ids.push(itemId);
+        // Skip empty, null, undefined, or whitespace-only itemIds
+        if (!itemId || typeof itemId !== 'string' || itemId.trim() === '') {
+          console.log(`[EQUIPMENT] Skipping empty or invalid itemId: "${itemId}"`);
           continue;
         }
+        
         if (!allocatedItemIds.includes(itemId)) {
           console.log(`[EQUIPMENT] ItemId ${itemId} not allocated for ${name} (${variant})`);
           invalid_item_ids.push(itemId);
@@ -397,15 +434,31 @@ exports.returnChemEquipGlass = asyncHandler(async (req, res) => {
         itemIds: returned_item_ids,
         returnedBy: req.userId,
       });
-      if (Array.isArray(equip.allocationHistory) && equip.allocationHistory.length > 0 && latestAllocation) {
-        // Remove returned itemIds only from the latest allocationHistory entry
-        if (Array.isArray(latestAllocation.itemIds)) {
-          latestAllocation.itemIds = latestAllocation.itemIds.filter(id => !returned_item_ids.includes(id));
+      if (Array.isArray(equip.allocationHistory) && equip.allocationHistory.length > 0) {
+        // Remove returned itemIds from all allocation history entries that contain them
+        for (const allocation of equip.allocationHistory) {
+          if (Array.isArray(allocation.itemIds)) {
+            const originalLength = allocation.itemIds.length;
+            allocation.itemIds = allocation.itemIds.filter(id => !returned_item_ids.includes(id));
+            
+            // Update quantity to match the actual number of remaining itemIds
+            allocation.quantity = allocation.itemIds.length;
+            
+            if (allocation.itemIds.length < originalLength) {
+              console.log(`[EQUIPMENT] Removed ${originalLength - allocation.itemIds.length} itemIds from allocation on ${allocation.date || 'unknown date'}`);
+              console.log(`[EQUIPMENT] Updated quantity from ${originalLength} to ${allocation.quantity} for allocation on ${allocation.date || 'unknown date'}`);
+            }
+          }
         }
-        // If all itemIds are returned from the latest allocation, mark as not allocated
-        if (!latestAllocation.itemIds || latestAllocation.itemIds.length === 0) {
+        
+        // Check if all itemIds are returned from all allocations
+        const remainingItemIds = equip.allocationHistory
+          .filter(allocation => Array.isArray(allocation.itemIds))
+          .flatMap(allocation => allocation.itemIds);
+        
+        if (remainingItemIds.length === 0) {
           equip.isAllocated = false;
-          console.log(`[EQUIPMENT] All items returned for ${name} (${variant}) in latest allocation, marked as not allocated.`);
+          console.log(`[EQUIPMENT] All items returned for ${name} (${variant}), marked as not allocated.`);
         }
       } else {
         equip.itemIds = equip.itemIds.filter(id => !returned_item_ids.includes(id));

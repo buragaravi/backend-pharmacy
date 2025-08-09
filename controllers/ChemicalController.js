@@ -4,10 +4,42 @@ const ChemicalLive = require('../models/ChemicalLive');
 const Transaction = require('../models/Transaction');
 const ExpiredChemicalLog = require('../models/ExpiredChemicalLog');
 const OutOfStockChemical = require('../models/OutOfStockChemical');
+const Lab = require('../models/Lab');
 const { default: mongoose } = require('mongoose');
 
-// Constants
-const LAB_IDS = ['LAB01', 'LAB02', 'LAB03', 'LAB04', 'LAB05', 'LAB06', 'LAB07', 'LAB08'];
+// Helper function to get valid lab IDs from database
+let cachedLabIds = null;
+let lastCacheTime = null;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+async function getValidLabIds() {
+  try {
+    // Check if we have cached data that's still valid
+    const now = Date.now();
+    if (cachedLabIds && lastCacheTime && (now - lastCacheTime) < CACHE_DURATION) {
+      return cachedLabIds;
+    }
+
+    // Fetch fresh data from database
+    const labs = await Lab.find({ isActive: true }).select('labId');
+    const labIds = labs.map(lab => lab.labId);
+    
+    // Update cache
+    cachedLabIds = labIds;
+    lastCacheTime = now;
+    
+    return labIds;
+  } catch (error) {
+    console.error('Error fetching lab IDs:', error);
+    // Return cached data if available, even if stale
+    if (cachedLabIds) {
+      console.warn('Using stale lab ID cache due to database error');
+      return cachedLabIds;
+    }
+    // Ultimate fallback to empty array
+    return [];
+  }
+}
 
 // Helper: generate batch ID manually
 function generateBatchId() {
@@ -24,7 +56,7 @@ function generateBatchId() {
 // Helper: get latest batch ID from DB
 async function getLastUsedBatchId() {
   const latest = await ChemicalMaster.findOne({ batchId: { $exists: true } })
-    .sort({ createdAt: -1 })
+    .sort({ createdAt: -1 }) 
     .select('batchId');
   return latest?.batchId || null;
 }
@@ -370,13 +402,11 @@ exports.allocateChemicalsToLab = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: 'labId and allocations required' });
   }
 
-  // Validate lab ID
-  if (!LAB_IDS.includes(labId) && labId !== 'central-store') {
+  // Validate lab ID dynamically from database
+  const validLabIds = await getValidLabIds();
+  if (!validLabIds.includes(labId) && labId !== 'central-store') {
     return res.status(400).json({ message: 'Invalid lab ID' });
   }
-
-  const session = await mongoose.startSession();
-  session.startTransaction();
 
   try {
     const results = [];
@@ -400,7 +430,7 @@ exports.allocateChemicalsToLab = asyncHandler(async (req, res) => {
         displayName: chemicalName,
         labId: 'central-store',
         quantity: { $gt: 0 }
-      }).sort({ expiryDate: 1 }).session(session);
+      }).sort({ expiryDate: 1 });
 
       if (!centralStocks.length) {
         results.push({
@@ -427,7 +457,7 @@ exports.allocateChemicalsToLab = asyncHandler(async (req, res) => {
             quantity: { $gte: allocQty }
           },
           { $inc: { quantity: -allocQty } },
-          { session, new: true }
+          { new: true }
         );
         if (!updatedCentral) {
           allocationFailed = true;
@@ -435,7 +465,7 @@ exports.allocateChemicalsToLab = asyncHandler(async (req, res) => {
         }
         // PATCH: handle out-of-stock and reindexing
         await handlePostAllocation(updatedCentral);
-        // Add/update lab stock with session
+        // Add/update lab stock
         const labStock = await ChemicalLive.findOneAndUpdate(
           {
             chemicalMasterId: centralStock.chemicalMasterId,
@@ -453,13 +483,12 @@ exports.allocateChemicalsToLab = asyncHandler(async (req, res) => {
             }
           },
           {
-            session,
             new: true,
             upsert: true
           }
         );
-        // Create transaction record with session
-        await Transaction.create([{
+        // Create transaction record
+        await Transaction.create({
           chemicalName: centralStock.chemicalName,
           transactionType: 'allocation',
           chemicalLiveId: labStock._id,
@@ -469,7 +498,7 @@ exports.allocateChemicalsToLab = asyncHandler(async (req, res) => {
           unit: centralStock.unit,
           createdBy: req.userId,
           timestamp: new Date()
-        }], { session });
+        });
         totalAllocated += allocQty;
         lastExpiry = centralStock.expiryDate;
         lastCentralStock = centralStock;
@@ -498,28 +527,23 @@ exports.allocateChemicalsToLab = asyncHandler(async (req, res) => {
     }
 
     if (hasError) {
-      await session.abortTransaction();
       return res.status(400).json({
         message: 'Some allocations failed',
         results
       });
     }
 
-    await session.commitTransaction();
     res.status(200).json({
       message: 'All allocations completed successfully',
       results
     });
 
   } catch (error) {
-    await session.abortTransaction();
     console.error('Allocation error:', error);
     res.status(500).json({
       message: 'Allocation process failed',
       error: error.message
     });
-  } finally {
-    session.endSession();
   }
 });
 
@@ -621,7 +645,8 @@ exports.getChemicalDistribution = asyncHandler(async (req, res) => {
     ]);
 
     // Normalize lab IDs and ensure all labs are represented
-    const validLabIds = ['central-store', ...LAB_IDS];
+    const dynamicLabIds = await getValidLabIds();
+    const validLabIds = ['central-store', ...dynamicLabIds];
     const completeDistribution = validLabIds.map(labId => {
       const labData = distribution.find(d => d.labId === labId) || {
         labId,

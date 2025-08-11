@@ -563,6 +563,13 @@ exports.getAllRequests = asyncHandler(async (req, res) => {
       .populate('createdBy', 'name')
       .populate('updatedBy', 'name')
       .populate('experiments.experimentId', 'name subject')
+      .populate({
+        path: 'experiments.experimentId',
+        populate: {
+          path: 'subjectId',
+          select: 'name code'
+        }
+      })
       .populate('experiments.chemicals.chemicalMasterId')
       .populate('experiments.chemicals.allocationHistory.allocatedBy', 'name')
       .sort({ createdAt: -1 });
@@ -605,6 +612,15 @@ exports.getUnapprovedRequests = asyncHandler(async (req, res) => {
     const requests = await Request.find({ status: 'pending' })
       .populate('facultyId', 'name email')
       .populate('labId', 'name')
+      .populate('experiments.experimentId', 'name subject')
+      .populate({
+        path: 'experiments.experimentId',
+        populate: {
+          path: 'subjectId',
+          select: 'name code'
+        }
+      })
+      .populate('experiments.courseId', 'courseName courseCode batches')
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -646,7 +662,14 @@ exports.getRequestsByLabId = asyncHandler(async (req, res) => {
   try {
     const requests = await Request.find({ labId })
       .populate('facultyId', 'name email')
-      .populate('experiments.experimentId', 'name')
+      .populate('experiments.experimentId', 'name subject')
+      .populate({
+        path: 'experiments.experimentId',
+        populate: {
+          path: 'subjectId',
+          select: 'name code'
+        }
+      })
       .populate('experiments.courseId', 'courseName courseCode batches')
       .populate('experiments.chemicals.chemicalMasterId')
       .populate('experiments.chemicals.allocationHistory.allocatedBy', 'name')
@@ -673,6 +696,13 @@ exports.getRequestById = asyncHandler(async (req, res) => {
     .populate('createdBy', 'name')
     .populate('updatedBy', 'name')
     .populate('experiments.experimentId', 'name subject description')
+    .populate({
+      path: 'experiments.experimentId',
+      populate: {
+        path: 'subjectId',
+        select: 'name code'
+      }
+    })
     .populate('experiments.chemicals.chemicalMasterId')
     .populate('experiments.chemicals.allocationHistory.allocatedBy', 'name');
 
@@ -1791,6 +1821,15 @@ exports.getPendingOverviewRequests = asyncHandler(async (req, res) => {
   const requests = await Request.find({ status: { $in: ['pending', 'partially_fulfilled'] } })
     .populate('facultyId', 'name email')
     .populate('labId', 'name')
+    .populate('experiments.experimentId', 'name subject')
+    .populate({
+      path: 'experiments.experimentId',
+      populate: {
+        path: 'subjectId',
+        select: 'name code'
+      }
+    })
+    .populate('experiments.courseId', 'courseName courseCode batches')
     .sort({ createdAt: -1 });
   res.status(200).json({ count: requests.length, data: requests });
 });
@@ -1803,6 +1842,15 @@ exports.getAllRequestsForDashboard = asyncHandler(async (req, res) => {
     const requests = await Request.find()
       .populate('facultyId', 'name email')
       .populate('labId', 'name')
+      .populate('experiments.experimentId', 'name subject')
+      .populate({
+        path: 'experiments.experimentId',
+        populate: {
+          path: 'subjectId',
+          select: 'name code'
+        }
+      })
+      .populate('experiments.courseId', 'courseName courseCode batches')
       .sort({ createdAt: -1 });
     res.status(200).json({ count: requests.length, data: requests });
   } catch (err) {

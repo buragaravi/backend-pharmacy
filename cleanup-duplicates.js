@@ -4,7 +4,7 @@ require('dotenv').config();
 // Connect to database
 async function connectDB() {
   try {
-    const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/jits';
+    const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/Pydah';
     console.log('Connecting to:', mongoURI);
     
     await mongoose.connect(mongoURI, {

@@ -74,7 +74,7 @@ app.get('/', (req, res) => {
     <head>
       <meta charset="UTF-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>JITS Pharmacy - Chemical Stock Management System</title>
+      <title>Pydah Pharmacy - Chemical Stock Management System</title>
       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
       <style>
         * { 
@@ -275,7 +275,7 @@ app.get('/', (req, res) => {
     <body>
       <header class="header">
         <nav class="nav">
-          <a href="/" class="logo">JITS Pharmacy</a>
+          <a href="/" class="logo">Pydah Pharmacy</a>
           <ul class="nav-links">
             <li><a href="/api-docs">API Documentation</a></li>
             <li><a href="#features">Features</a></li>
@@ -358,7 +358,7 @@ app.get('/', (req, res) => {
         </section>
         
         <footer class="footer" id="contact">
-          <p>&copy; 2025 JITS Pharmacy. All rights reserved. | Chemical Stock Management API v1.0</p>
+          <p>&copy; 2025 Pydah Pharmacy. All rights reserved. | Chemical Stock Management API v1.0</p>
         </footer>
       </main>
     </body>

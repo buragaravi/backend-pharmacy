@@ -12,7 +12,7 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 async function migrateCentralLabToStore() {
   try {
     // Connect to MongoDB
-    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/jits';
+    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/Pydah';
     await mongoose.connect(mongoUri, {
       useNewUrlParser: true,
       useUnifiedTopology: true,

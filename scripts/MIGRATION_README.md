@@ -7,7 +7,7 @@ This directory contains scripts to migrate all inventory items from `labId: "cen
 ### 1. Quick Migration (Recommended)
 ```bash
 # Navigate to backend directory
-cd backend-jits
+cd backend-Pydah
 
 # Run the migration script
 node scripts/migrateCentralLab.js
@@ -91,7 +91,7 @@ After running, you can verify the migration worked by:
 - **"Connection failed"** - Check your MongoDB connection string in `.env`
 - **"No documents found"** - Your inventory might already be using "central-store"
 - **"Permission denied"** - For API endpoint, ensure you're using an admin token
-- **"Model not found"** - Ensure you're running from the `backend-jits` directory
+- **"Model not found"** - Ensure you're running from the `backend-Pydah` directory
 
 ## Need Help?
 

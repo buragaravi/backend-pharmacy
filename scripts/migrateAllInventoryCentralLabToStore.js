@@ -9,7 +9,7 @@ require('dotenv').config();
 async function migrateAllInventoryTypes() {
   try {
     // Connect to MongoDB
-    await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/jits', {
+    await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/Pydah', {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });

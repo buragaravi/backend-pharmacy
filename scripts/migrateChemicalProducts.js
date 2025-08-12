@@ -5,7 +5,7 @@ const { migrateExistingChemicals } = require('../utils/chemicalProductIntegratio
 // Database connection (adjust the connection string as needed)
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect('mongodb+srv://ravi:RaPy2025@ravipydah.wnmy712.mongodb.net/Jits-StocksPharmacy?retryWrites=true&w=majority' || 'mongodb://localhost:27017/jits-db');
+    const conn = await mongoose.connect('mongodb+srv://ravi:RaPy2025@ravipydah.wnmy712.mongodb.net/Pydah-StocksPharmacy?retryWrites=true&w=majority' || 'mongodb://localhost:27017/Pydah-db');
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
     console.error('❌ Database connection failed:', error);

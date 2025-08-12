@@ -4,7 +4,7 @@ const AuditAssignment = require('./models/AuditAssignment');
 const Lab = require('./models/Lab');
 
 // Connect to database
-mongoose.connect('mongodb://localhost:27017/jits-backend', {
+mongoose.connect('mongodb://localhost:27017/Pydah-backend', {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });

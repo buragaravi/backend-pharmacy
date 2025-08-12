@@ -104,23 +104,23 @@ exports.register = async (req, res) => {
     try {
       const emailData = {
         to: [{ email, name }],
-        subject: 'Welcome to Jits Pharmacy - Your Account Details',
+        subject: 'Welcome to Pydah Pharmacy - Your Account Details',
         htmlContent: `
-          <div style="font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px; min-height: 100vh;">
-            <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);">
+          <div style="font-family: 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 50%, #bfdbfe 100%); padding: 30px 20px; min-height: 100vh;">
+            <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 25px 50px rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.1);">
               
-              <!-- Header Section -->
-              <div style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 40px 30px; text-align: center; position: relative; overflow: hidden;">
-                <div style="position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%); animation: pulse 4s ease-in-out infinite;"></div>
+              <!-- Header Section with Logo in Circle -->
+              <div style="background: linear-gradient(135deg, #3b82f6 0%, #1e40af 50%, #1d4ed8 100%); padding: 40px 30px; text-align: center; position: relative; overflow: hidden;">
+                <div style="position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%);"></div>
+                <div style="position: absolute; top: 20px; left: 20px; width: 100px; height: 100px; background: rgba(255,255,255,0.05); border-radius: 50%; blur: 20px;"></div>
+                <div style="position: absolute; bottom: 20px; right: 20px; width: 80px; height: 80px; background: rgba(255,255,255,0.03); border-radius: 50%; blur: 15px;"></div>
+                
                 <div style="position: relative; z-index: 2;">
-                  <div style="display: inline-block; background: rgba(255, 255, 255, 0.2); padding: 16px; border-radius: 50%; margin-bottom: 20px; backdrop-filter: blur(10px);">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M16 7C16 9.20914 14.2091 11 12 11C9.79086 11 8 9.20914 8 7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                      <path d="M12 14C8.13401 14 5 17.134 5 21H19C19 17.134 15.866 14 12 14Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
+                  <div style="display: inline-block; background: rgba(255, 255, 255, 0.15); padding: 15px; border-radius: 50%; margin-bottom: 25px; backdrop-filter: blur(10px); border: 2px solid rgba(255,255,255,0.3); width: 80px; height: 80px; display: flex; align-items: center; justify-content: center;">
+                    <img src="https://i.ibb.co/3gWr97t/pydahsoft-logo.jpg" alt="PydahSoft Logo" style="width: 50px; height: auto; max-height: 50px; object-fit: contain; border-radius: 4px;">
                   </div>
-                  <h1 style="color: #ffffff; font-size: 32px; font-weight: 700; margin: 0; letter-spacing: -0.5px; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">Welcome to Pydah Pharmacy!</h1>
-                  <p style="color: rgba(255, 255, 255, 0.9); font-size: 18px; margin: 10px 0 0 0; font-weight: 300;">Your account has been created successfully</p>
+                  <h1 style="color: #ffffff; font-size: 28px; font-weight: 600; margin: 0 0 12px 0; letter-spacing: -0.3px; text-shadow: 0 2px 8px rgba(0,0,0,0.1);">Welcome to Pydah Pharmacy!</h1>
+                  <p style="color: rgba(255, 255, 255, 0.95); font-size: 16px; margin: 0; font-weight: 400; line-height: 1.5;">Your account has been created successfully and is ready to use</p>
                 </div>
               </div>
 
@@ -171,7 +171,7 @@ exports.register = async (req, res) => {
 
                 <!-- Action Button -->
                 <div style="text-align: center; margin: 40px 0;">
-                  <a href="${process.env.FRONTEND_URL || 'https://jits-pharmacy-labs.vercel.app'}/login" style="display: inline-block; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; text-decoration: none; padding: 16px 32px; border-radius: 50px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4); transition: all 0.3s ease;">
+                  <a href="${process.env.FRONTEND_URL || 'https://pydah-pharmacy-labs.vercel.app'}/login" style="display: inline-block; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; text-decoration: none; padding: 16px 32px; border-radius: 50px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4); transition: all 0.3s ease;">
                     Access Your Account →
                   </a>
                 </div>
@@ -187,13 +187,15 @@ exports.register = async (req, res) => {
               </div>
 
               <!-- Footer -->
-              <div style="background: #f9fafb; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
-                <div style="margin-bottom: 15px;">
-                  <img src="https://i.ibb.co/3gWr97t/pydahsoft-logo.jpg" alt="PydahSoft Logo" style="height: 32px; opacity: 0.8;">
+              <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); padding: 35px; text-align: center; border-top: 1px solid #e0f2fe;">
+                <div style="margin-bottom: 20px;">
+                  <div style="display: inline-block; background: rgba(59, 130, 246, 0.05); padding: 12px 20px; border-radius: 16px; border: 1px solid rgba(59, 130, 246, 0.1);">
+                    <img src="https://i.ibb.co/3gWr97t/pydahsoft-logo.jpg" alt="PydahSoft Logo" style="height: 36px; opacity: 0.9;">
+                  </div>
                 </div>
-                <p style="color: #6b7280; font-size: 12px; line-height: 1.5; margin: 0;">
+                <p style="color: #64748b; font-size: 13px; line-height: 1.6; margin: 0; font-weight: 500;">
                   © ${new Date().getFullYear()} PydahSoft. All rights reserved.<br>
-                  This email contains confidential information. Please do not forward or share.
+                  <span style="color: #94a3b8; font-size: 12px;">This email contains confidential information. Please do not forward or share.</span>
                 </p>
               </div>
             </div>
@@ -201,7 +203,7 @@ exports.register = async (req, res) => {
         `,
         sender: { 
           email: process.env.BREVO_SENDER_EMAIL || 'ravi@pydahsoft.in',
-          name: process.env.BREVO_SENDER_NAME || 'Jits Pharmacy System'
+          name: process.env.BREVO_SENDER_NAME || 'Pydah Pharmacy System'
         }
       };
 
@@ -385,7 +387,7 @@ exports.requestPasswordReset = async (req, res) => {
 </div>
       `,
       sender: { 
-        email: process.env.BREVO_SENDER_EMAIL || 'no-reply@yourapp.com',
+        email: process.env.BREVO_SENDER_EMAIL || 'ravi@pydahsoft.in',
         name: process.env.BREVO_SENDER_NAME || 'Pydah Pharmacy Stocks Management System'
       }
     };

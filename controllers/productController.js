@@ -5,6 +5,14 @@ const EquipmentLive = require('../models/EquipmentLive');
 const GlasswareLive = require('../models/GlasswareLive');
 const OtherProductLive = require('../models/OtherProductLive');
 
+/**
+ * Properly capitalize product name (first letter uppercase, rest lowercase)
+ */
+const capitalizeProductName = (name) => {
+  if (!name || typeof name !== 'string') return name;
+  return name.trim().toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+};
+
 // @desc    Get all products
 // @route   GET /api/products
 // @access  Public
@@ -54,13 +62,17 @@ const getProductsByCategory = asyncHandler(async (req, res) => {
 const createProduct = asyncHandler(async (req, res) => {
   const { name, unit, thresholdValue, category, subCategory, variant } = req.body;
 
-  // Check if product already exists with same name, category, and category-specific identifier
+  // Properly capitalize the product name
+  const capitalizedName = capitalizeProductName(name);
+  const categoryLower = category.toLowerCase();
+
+  // Check if product already exists with same name (case-insensitive), category, and category-specific identifier
   let duplicateCheckQuery = { 
-    name,
-    category: category.toLowerCase()
+    name: { $regex: new RegExp(`^${capitalizedName}$`, 'i') }, // Case-insensitive exact match
+    category: categoryLower
   };
   
-  if (category === 'chemical') {
+  if (categoryLower === 'chemical') {
     duplicateCheckQuery.unit = unit || '';
   } else {
     duplicateCheckQuery.variant = variant || '';
@@ -70,18 +82,18 @@ const createProduct = asyncHandler(async (req, res) => {
   if (existingProduct) {
     return res.status(400).json({
       success: false,
-      message: `Product with this name, category, and ${category === 'chemical' ? 'unit' : 'variant'} already exists`
+      message: `Product with this name, category, and ${categoryLower === 'chemical' ? 'unit' : 'variant'} already exists`
     });
   }
 
   // Validation: unit required for chemical, variant required for others
-  if (category === 'chemical' && (!unit || unit.trim() === '')) {
+  if (categoryLower === 'chemical' && (!unit || unit.trim() === '')) {
     return res.status(400).json({
       success: false,
       message: 'Unit is required for chemical products'
     });
   }
-  if (category !== 'chemical' && (!variant || variant.trim() === '')) {
+  if (categoryLower !== 'chemical' && (!variant || variant.trim() === '')) {
     return res.status(400).json({
       success: false,
       message: 'Variant is required for non-chemical products'
@@ -89,12 +101,12 @@ const createProduct = asyncHandler(async (req, res) => {
   }
 
   const product = await Product.create({
-    name,
-    unit: category === 'chemical' ? unit : '',
+    name: capitalizedName, // Store with proper capitalization
+    unit: categoryLower === 'chemical' ? unit : '',
     thresholdValue,
-    category: category.toLowerCase(),
+    category: categoryLower,
     subCategory: subCategory || '',
-    variant: category !== 'chemical' ? variant : ''
+    variant: categoryLower !== 'chemical' ? variant : ''
   });
 
   res.status(201).json({
@@ -145,6 +157,9 @@ const createBulkProducts = asyncHandler(async (req, res) => {
         }
       }
 
+      // Properly capitalize the product name
+      const capitalizedName = capitalizeProductName(productData.name);
+
       // Validate unit for chemical products
       if (category === 'chemical' && (!productData.unit || productData.unit.trim() === '')) {
         results.errors.push({
@@ -165,9 +180,9 @@ const createBulkProducts = asyncHandler(async (req, res) => {
         continue;
       }
 
-      // Check if product already exists with same name, category, and category-specific identifier
+      // Check if product already exists with same name (case-insensitive), category, and category-specific identifier
       let duplicateCheckQuery = { 
-        name: productData.name.trim(),
+        name: { $regex: new RegExp(`^${capitalizedName}$`, 'i') }, // Case-insensitive exact match
         category: category
       };
       
@@ -193,7 +208,7 @@ const createBulkProducts = asyncHandler(async (req, res) => {
 
       // Create the product
       const product = await Product.create({
-        name: productData.name.trim(),
+        name: capitalizedName, // Store with proper capitalization
         unit: category === 'chemical' ? productData.unit.trim() : '',
         thresholdValue,
         category,
@@ -240,8 +255,10 @@ const updateProduct = asyncHandler(async (req, res) => {
 
   // Check if name/category/unit/variant combination is being changed to one that already exists
   const productCategory = category ? category.toLowerCase() : product.category;
+  const newName = name ? capitalizeProductName(name) : product.name;
+  
   let duplicateCheckQuery = { 
-    name: name || product.name,
+    name: { $regex: new RegExp(`^${newName}$`, 'i') }, // Case-insensitive exact match
     category: productCategory,
     _id: { $ne: id } // Exclude current product from check
   };
@@ -275,7 +292,7 @@ const updateProduct = asyncHandler(async (req, res) => {
   }
 
   // Update product
-  product.name = name || product.name;
+  product.name = newName; // Store with proper capitalization
   product.unit = (category || product.category) === 'chemical' ? unit : '';
   product.thresholdValue = thresholdValue || product.thresholdValue;
   product.category = category ? category.toLowerCase() : product.category;
@@ -315,7 +332,7 @@ const deleteProduct = asyncHandler(async (req, res) => {
 const searchProducts = asyncHandler(async (req, res) => {
   const { q } = req.query;
   const products = await Product.find({ 
-    name: { $regex: q, $options: 'i' } 
+    name: { $regex: q, $options: 'i' } // Case-insensitive search
   });
   res.status(200).json({ success: true, data: products });
 });

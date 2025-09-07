@@ -103,11 +103,27 @@ const createInvoice = asyncHandler(async (req, res) => {
     });
     
     if (chemicals.length > 0) {
-      await addChemicalsToCentral({ body: { chemicals } }, { status: () => ({ json: () => {} }) });
+      try {
+        await addChemicalsToCentral({ body: { chemicals } }, { status: () => ({ json: () => {} }) });
+        console.log('✅ Successfully added chemicals to Chemical Master');
+      } catch (chemicalError) {
+        // Log detailed error but don't block invoice creation
+        console.error('❌ Failed to add chemicals to Chemical Master:', {
+          error: chemicalError.message,
+          stack: chemicalError.stack,
+          chemicals: chemicals.map(c => ({
+            name: c.chemicalName,
+            quantity: c.quantity,
+            unit: c.unit,
+            expiryDate: c.expiryDate,
+            vendor: c.vendor
+          }))
+        });
+      }
     }
   } catch (err) {
     // Log but don't block invoice creation
-    console.error('Failed to add chemicals to Chemical Master:', err.message);
+    console.error('❌ Failed to add chemicals to Chemical Master (outer catch):', err.message);
   }
 
   // Increment voucherId for 'invoice' category after successful creation

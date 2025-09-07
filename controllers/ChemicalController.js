@@ -157,10 +157,34 @@ exports.addChemicalsToCentral = asyncHandler(async (req, res) => {
   const savedChemicals = [];
 
   for (const chem of chemicals) {
-    let { productId, chemicalName, quantity, unit, expiryDate, vendor, pricePerUnit, department } = chem;
-    if (expiryDate) {
-      expiryDate = new Date(expiryDate);
-    }
+    try {
+      let { productId, chemicalName, quantity, unit, expiryDate, vendor, pricePerUnit, department } = chem;
+      
+      // Validate required fields
+      if (!chemicalName || !quantity || !unit || !vendor) {
+        console.error('❌ Missing required fields for chemical:', {
+          chemicalName,
+          quantity,
+          unit,
+          vendor,
+          expiryDate
+        });
+        continue; // Skip this chemical
+      }
+      
+      // Convert expiry date if provided
+      if (expiryDate) {
+        try {
+          expiryDate = new Date(expiryDate);
+          if (isNaN(expiryDate.getTime())) {
+            console.warn('⚠️ Invalid expiry date, treating as no-expiry:', expiryDate);
+            expiryDate = null;
+          }
+        } catch (error) {
+          console.warn('⚠️ Error parsing expiry date, treating as no-expiry:', error.message);
+          expiryDate = null;
+        }
+      }
     // PATCH: Refined logic for no-expiry chemicals
     if (!expiryDate) {
       // Enhanced matching: find by base name (without suffix) and vendor, unit
@@ -254,9 +278,12 @@ exports.addChemicalsToCentral = asyncHandler(async (req, res) => {
     }
 
     // 3. Check for exact match (name+vendor+unit+expiry)
-    const exactMatch = existingChems.find(c =>
-      c.expiryDate.getTime() === expiryDate.getTime()
-    );
+    const exactMatch = existingChems.find(c => {
+      // Handle null/undefined expiry dates
+      if (!c.expiryDate && !expiryDate) return true; // Both null/undefined
+      if (!c.expiryDate || !expiryDate) return false; // One is null, other isn't
+      return c.expiryDate.getTime() === expiryDate.getTime();
+    });
 
     console.log('🔍 Exact match check:', {
       chemicalName,
@@ -297,9 +324,11 @@ exports.addChemicalsToCentral = asyncHandler(async (req, res) => {
     } else {
       // Handle expiry date conflicts
       const newExpiry = expiryDate.getTime();
-      const existingWithEarlierExpiry = existingChems.find(c =>
-        c.expiryDate.getTime() < newExpiry
-      );
+      const existingWithEarlierExpiry = existingChems.find(c => {
+        // Skip chemicals with null/undefined expiry dates
+        if (!c.expiryDate) return false;
+        return c.expiryDate.getTime() < newExpiry;
+      });
 
       if (existingWithEarlierExpiry) {
         // Existing has earlier expiry - it keeps name, new gets suffix
@@ -338,6 +367,15 @@ exports.addChemicalsToCentral = asyncHandler(async (req, res) => {
         );
         savedChemicals.push(masterEntry);
       }
+    }
+    } catch (error) {
+      console.error('❌ Error processing chemical:', {
+        chemical: chem,
+        error: error.message,
+        stack: error.stack
+      });
+      // Continue with next chemical instead of failing entire batch
+      continue;
     }
   }
 

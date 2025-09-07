@@ -136,6 +136,17 @@ exports.addChemicalsToCentral = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: 'No chemicals provided' });
   }
 
+  console.log('🔬 Adding chemicals to central store:', {
+    count: chemicals.length,
+    chemicals: chemicals.map(c => ({
+      name: c.chemicalName,
+      quantity: c.quantity,
+      unit: c.unit,
+      vendor: c.vendor,
+      expiryDate: c.expiryDate
+    }))
+  });
+
   let batchId;
   if (usePreviousBatchId) {
     batchId = await getLastUsedBatchId();
@@ -152,13 +163,34 @@ exports.addChemicalsToCentral = asyncHandler(async (req, res) => {
     }
     // PATCH: Refined logic for no-expiry chemicals
     if (!expiryDate) {
-      // Always filter by name, vendor, unit
+      // Enhanced matching: find by base name (without suffix) and vendor, unit
+      const baseName = chemicalName.split(' - ')[0]; // Remove any existing suffix
       const existingChems = await ChemicalMaster.find({
-        chemicalName: chemicalName,
+        $or: [
+          { chemicalName: chemicalName }, // Exact match
+          { chemicalName: new RegExp(`^${baseName}( - [A-Z])?$`, 'i') } // Base name with optional suffix
+        ],
+        vendor,
+        unit
       });
       console.log('Existing no-expiry chemicals:', existingChems);
       // Check for a no-expiry batch (strict: only null or undefined)
       const noExpiryBatch = existingChems.find(c => c.expiryDate == null);
+      
+      console.log('🔍 No-expiry batch check:', {
+        chemicalName,
+        existingChems: existingChems.map(c => ({
+          name: c.chemicalName,
+          expiryDate: c.expiryDate,
+          vendor: c.vendor,
+          unit: c.unit
+        })),
+        noExpiryBatch: noExpiryBatch ? {
+          name: noExpiryBatch.chemicalName,
+          expiryDate: noExpiryBatch.expiryDate
+        } : null
+      });
+      
       if (noExpiryBatch) {
         // Add to existing no-expiry batch
         noExpiryBatch.quantity += Number(quantity);
@@ -200,9 +232,13 @@ exports.addChemicalsToCentral = asyncHandler(async (req, res) => {
         continue;
       }
     }
-    // 1. Check for existing chemical with same name, vendor AND unit
+    // 1. Enhanced matching: Check for existing chemical with same base name, vendor AND unit
+    const baseName = chemicalName.split(' - ')[0]; // Remove any existing suffix
     const existingChems = await ChemicalMaster.find({
-      chemicalName: new RegExp(`^${chemicalName}( - [A-Z])?$`, 'i'),
+      $or: [
+        { chemicalName: chemicalName }, // Exact match
+        { chemicalName: new RegExp(`^${baseName}( - [A-Z])?$`, 'i') } // Base name with optional suffix
+      ],
       vendor,
       unit
     });
@@ -221,6 +257,21 @@ exports.addChemicalsToCentral = asyncHandler(async (req, res) => {
     const exactMatch = existingChems.find(c =>
       c.expiryDate.getTime() === expiryDate.getTime()
     );
+
+    console.log('🔍 Exact match check:', {
+      chemicalName,
+      existingChems: existingChems.map(c => ({
+        name: c.chemicalName,
+        expiryDate: c.expiryDate,
+        vendor: c.vendor,
+        unit: c.unit
+      })),
+      targetExpiry: expiryDate,
+      exactMatch: exactMatch ? {
+        name: exactMatch.chemicalName,
+        expiryDate: exactMatch.expiryDate
+      } : null
+    });
 
     if (exactMatch) {
       // Update quantities

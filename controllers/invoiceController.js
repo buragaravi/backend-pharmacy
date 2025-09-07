@@ -90,6 +90,18 @@ const createInvoice = asyncHandler(async (req, res) => {
       pricePerUnit: item.pricePerUnit,
       department: 'chemical'
     }));
+    
+    console.log('📋 Invoice chemicals to add:', {
+      vendor: vendor.name,
+      chemicals: chemicals.map(c => ({
+        name: c.chemicalName,
+        quantity: c.quantity,
+        unit: c.unit,
+        expiryDate: c.expiryDate,
+        vendor: c.vendor
+      }))
+    });
+    
     if (chemicals.length > 0) {
       await addChemicalsToCentral({ body: { chemicals } }, { status: () => ({ json: () => {} }) });
     }

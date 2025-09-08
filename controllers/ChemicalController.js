@@ -497,6 +497,15 @@ exports.allocateChemicalsToLab = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: 'Invalid lab ID' });
   }
 
+  console.log('🧪 Starting allocation process:', {
+    labId,
+    allocationCount: allocations.length,
+    allocations: allocations.map(a => ({
+      chemicalName: a.chemicalName,
+      quantity: a.quantity
+    }))
+  });
+
   try {
     const results = [];
     let hasError = false;
@@ -513,13 +522,38 @@ exports.allocateChemicalsToLab = asyncHandler(async (req, res) => {
         continue;
       }
 
-      // Find all central stocks for this displayName, sorted by earliest expiry (FIFO)
+      // Enhanced chemical finding with better matching
       let remainingQty = quantity;
-      const centralStocks = await ChemicalLive.find({
+      
+      // Try exact match first
+      let centralStocks = await ChemicalLive.find({
         displayName: chemicalName,
         labId: 'central-store',
         quantity: { $gt: 0 }
       }).sort({ expiryDate: 1 });
+      
+      // If no exact match, try case-insensitive and fuzzy matching
+      if (centralStocks.length === 0) {
+        const baseName = chemicalName.trim().replace(/\s+/g, ' ');
+        centralStocks = await ChemicalLive.find({
+          $or: [
+            { displayName: new RegExp(`^${baseName}$`, 'i') },
+            { displayName: new RegExp(`^${baseName.split(' - ')[0]}( - [A-Z])?$`, 'i') }
+          ],
+          labId: 'central-store',
+          quantity: { $gt: 0 }
+        }).sort({ expiryDate: 1 });
+      }
+      
+      console.log('🔍 Found central stocks for allocation:', {
+        chemicalName,
+        foundStocks: centralStocks.length,
+        stocks: centralStocks.map(s => ({
+          displayName: s.displayName,
+          quantity: s.quantity,
+          expiryDate: s.expiryDate
+        }))
+      });
 
       if (!centralStocks.length) {
         results.push({
@@ -535,25 +569,64 @@ exports.allocateChemicalsToLab = asyncHandler(async (req, res) => {
       let lastExpiry = null;
       let lastCentralStock = null;
       let allocationFailed = false;
+      const allocationSteps = []; // Track steps for potential rollback
 
       for (const centralStock of centralStocks) {
         if (remainingQty <= 0) break;
         const allocQty = Math.min(centralStock.quantity, remainingQty);
-        // Decrement central stock
-        const updatedCentral = await ChemicalLive.findOneAndUpdate(
-          {
-            _id: centralStock._id,
-            quantity: { $gte: allocQty }
-          },
-          { $inc: { quantity: -allocQty } },
-          { new: true }
-        );
-        if (!updatedCentral) {
-          allocationFailed = true;
-          break;
-        }
-        // PATCH: handle out-of-stock and reindexing
-        await handlePostAllocation(updatedCentral);
+        
+        try {
+          // Decrement central stock with retry mechanism
+          let updatedCentral = null;
+          let retryCount = 0;
+          const maxRetries = 3;
+          
+          while (retryCount < maxRetries && !updatedCentral) {
+            // Get fresh stock data
+            const freshStock = await ChemicalLive.findById(centralStock._id);
+            if (!freshStock || freshStock.quantity < allocQty) {
+              console.warn(`⚠️ Insufficient stock for ${chemicalName}: requested ${allocQty}, available ${freshStock?.quantity || 0}`);
+              break;
+            }
+            
+            updatedCentral = await ChemicalLive.findOneAndUpdate(
+              {
+                _id: centralStock._id,
+                quantity: { $gte: allocQty }
+              },
+              { $inc: { quantity: -allocQty } },
+              { new: true }
+            );
+            
+            if (!updatedCentral) {
+              retryCount++;
+              if (retryCount < maxRetries) {
+                console.warn(`⚠️ Retry ${retryCount}/${maxRetries} for ${chemicalName}`);
+                await new Promise(resolve => setTimeout(resolve, 100)); // Small delay
+              }
+            }
+          }
+          
+          if (!updatedCentral) {
+            console.error(`❌ Failed to allocate ${allocQty} of ${chemicalName} after ${maxRetries} retries`);
+            allocationFailed = true;
+            break;
+          }
+          
+          // Track allocation step for potential rollback
+          allocationSteps.push({
+            centralStockId: centralStock._id,
+            allocatedQty: allocQty,
+            originalQty: centralStock.quantity
+          });
+          
+          // PATCH: handle out-of-stock and reindexing with error handling
+          try {
+            await handlePostAllocation(updatedCentral);
+          } catch (postAllocError) {
+            console.error('⚠️ Error in post-allocation handling:', postAllocError.message);
+            // Don't fail the allocation for this error, just log it
+          }
         // Add/update lab stock
         const labStock = await ChemicalLive.findOneAndUpdate(
           {
@@ -588,21 +661,43 @@ exports.allocateChemicalsToLab = asyncHandler(async (req, res) => {
           createdBy: req.userId,
           timestamp: new Date()
         });
-        totalAllocated += allocQty;
-        lastExpiry = centralStock.expiryDate;
-        lastCentralStock = centralStock;
-        remainingQty -= allocQty;
+          totalAllocated += allocQty;
+          lastExpiry = centralStock.expiryDate;
+          lastCentralStock = centralStock;
+          remainingQty -= allocQty;
+        } catch (stepError) {
+          console.error(`❌ Error in allocation step for ${chemicalName}:`, stepError.message);
+          allocationFailed = true;
+          break;
+        }
       }
 
       if (allocationFailed || totalAllocated < quantity) {
         hasError = true;
+        
+        // Rollback partial allocations
+        if (allocationSteps.length > 0) {
+          console.log(`🔄 Rolling back ${allocationSteps.length} allocation steps for ${chemicalName}`);
+          try {
+            for (const step of allocationSteps) {
+              await ChemicalLive.findByIdAndUpdate(
+                step.centralStockId,
+                { $inc: { quantity: step.allocatedQty } }
+              );
+            }
+            console.log(`✅ Successfully rolled back allocations for ${chemicalName}`);
+          } catch (rollbackError) {
+            console.error(`❌ Failed to rollback allocations for ${chemicalName}:`, rollbackError.message);
+          }
+        }
+        
         results.push({
           chemicalName,
           status: 'failed',
           reason: 'Insufficient stock or concurrency error',
-          allocatedQuantity: totalAllocated
+          allocatedQuantity: totalAllocated,
+          attemptedSteps: allocationSteps.length
         });
-        // Optionally: rollback partial allocations for this chemical (advanced)
         continue;
       }
 

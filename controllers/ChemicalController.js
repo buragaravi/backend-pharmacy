@@ -224,18 +224,36 @@ exports.addChemicalsToCentral = asyncHandler(async (req, res) => {
         noExpiryBatch.department = department || noExpiryBatch.department; // Update department if provided
         await noExpiryBatch.save();
         const live = await ChemicalLive.findOne({
-          displayName: noExpiryBatch.chemicalName,
+          chemicalMasterId: noExpiryBatch._id,
           labId: 'central-store'
         });
         if (live) {
           live.quantity += Number(quantity);
           live.originalQuantity += Number(quantity);
           await live.save();
+        } else {
+          // Create missing ChemicalLive entry
+          console.log(`⚠️ Missing ChemicalLive for master ${noExpiryBatch._id}, creating...`);
+          await ChemicalLive.create({
+            chemicalMasterId: noExpiryBatch._id,
+            chemicalName: noExpiryBatch.chemicalName,
+            displayName: noExpiryBatch.chemicalName.split(' - ')[0],
+            unit: noExpiryBatch.unit,
+            expiryDate: noExpiryBatch.expiryDate,
+            labId: 'central-store',
+            quantity: noExpiryBatch.quantity,
+            originalQuantity: noExpiryBatch.quantity,
+            isAllocated: false
+          });
         }
         await createTransaction(
           noExpiryBatch.chemicalName, 'entry', noExpiryBatch._id,
           'central-store', 'central-store', quantity, unit, req.userId
         );
+        
+        // Remove from out-of-stock if this chemical was previously out-of-stock
+        await handleRestock(chemicalName);
+        
         savedChemicals.push(noExpiryBatch);
         continue;
       } else if (existingChems.length > 0) {
@@ -313,12 +331,29 @@ exports.addChemicalsToCentral = asyncHandler(async (req, res) => {
         live.quantity += Number(quantity);
         live.originalQuantity += Number(quantity);
         await live.save();
+      } else {
+        // Create missing ChemicalLive entry
+        console.log(`⚠️ Missing ChemicalLive for master ${exactMatch._id}, creating...`);
+        await ChemicalLive.create({
+          chemicalMasterId: exactMatch._id,
+          chemicalName: exactMatch.chemicalName,
+          displayName: exactMatch.chemicalName.split(' - ')[0],
+          unit: exactMatch.unit,
+          expiryDate: exactMatch.expiryDate,
+          labId: 'central-store',
+          quantity: exactMatch.quantity,
+          originalQuantity: exactMatch.quantity,
+          isAllocated: false
+        });
       }
 
       await createTransaction(
         exactMatch.chemicalName, 'entry', exactMatch._id,
         'central-store', 'central-store', quantity, unit, req.userId
       );
+
+      // Remove from out-of-stock if this chemical was previously out-of-stock
+      await handleRestock(chemicalName);
 
       savedChemicals.push(exactMatch);
     } else {
@@ -427,17 +462,24 @@ async function createNewChemical(name, qty, unit, expiry, batchId, vendor, price
     department: dept
   });
 
-  await ChemicalLive.create({
-    chemicalMasterId: masterEntry._id,
-    chemicalName: masterEntry.chemicalName,
-    displayName: name.split(' - ')[0], // Store clean name without suffix
-    unit,
-    expiryDate: expiry,
-    labId: 'central-store',
-    quantity: qty,
-    originalQuantity: qty,
-    isAllocated: false
-  });
+  try {
+    await ChemicalLive.create({
+      chemicalMasterId: masterEntry._id,
+      chemicalName: masterEntry.chemicalName,
+      displayName: name.split(' - ')[0], // Store clean name without suffix
+      unit,
+      expiryDate: expiry,
+      labId: 'central-store',
+      quantity: qty,
+      originalQuantity: qty,
+      isAllocated: false
+    });
+    console.log(`✅ Created ChemicalLive for master: ${masterEntry._id} (${name})`);
+  } catch (error) {
+    console.error(`❌ Failed to create ChemicalLive for master ${masterEntry._id}:`, error);
+    // Don't throw here to avoid breaking the entire batch, but log the error
+    // The diagnostic script will catch these missing entries
+  }
 
   await createTransaction(
     masterEntry.chemicalName,
@@ -449,6 +491,9 @@ async function createNewChemical(name, qty, unit, expiry, batchId, vendor, price
     unit,
     userId
   );
+
+  // Remove from out-of-stock if this chemical was previously out-of-stock
+  await handleRestock(name.split(' - ')[0]);
 
   return masterEntry;
 }

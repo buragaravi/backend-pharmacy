@@ -560,8 +560,10 @@ exports.allocateChemicalsToLab = asyncHandler(async (req, res) => {
       if (!chemicalName || typeof quantity !== 'number' || quantity <= 0) {
         results.push({
           chemicalName,
+          quantity: quantity,
           status: 'failed',
-          reason: 'Invalid chemical name or quantity'
+          reason: 'Invalid chemical name or quantity',
+          originalQuantity: quantity
         });
         hasError = true;
         continue;
@@ -603,8 +605,10 @@ exports.allocateChemicalsToLab = asyncHandler(async (req, res) => {
       if (!centralStocks.length) {
         results.push({
           chemicalName,
+          quantity: quantity,
           status: 'failed',
-          reason: 'Insufficient stock or not found'
+          reason: 'Insufficient stock or not found',
+          originalQuantity: quantity
         });
         hasError = true;
         continue;
@@ -738,9 +742,11 @@ exports.allocateChemicalsToLab = asyncHandler(async (req, res) => {
         
         results.push({
           chemicalName,
+          quantity: quantity,
           status: 'failed',
           reason: 'Insufficient stock or concurrency error',
           allocatedQuantity: totalAllocated,
+          originalQuantity: quantity,
           attemptedSteps: allocationSteps.length
         });
         continue;
@@ -748,22 +754,34 @@ exports.allocateChemicalsToLab = asyncHandler(async (req, res) => {
 
       results.push({
         chemicalName,
+        quantity: quantity,
         status: 'success',
         allocatedQuantity: totalAllocated,
+        originalQuantity: quantity,
         expiryDate: lastExpiry,
         chemicalMasterId: lastCentralStock ? lastCentralStock.chemicalMasterId : undefined
       });
     }
 
+    // Separate successful and failed allocations
+    const successfulAllocations = results.filter(r => r.status === 'success');
+    const failedAllocations = results.filter(r => r.status === 'failed');
+
     if (hasError) {
       return res.status(400).json({
-        message: 'Some allocations failed',
+        message: `${failedAllocations.length} allocation(s) failed, ${successfulAllocations.length} succeeded`,
+        success: false,
+        successfulAllocations,
+        failedAllocations,
         results
       });
     }
 
     res.status(200).json({
       message: 'All allocations completed successfully',
+      success: true,
+      successfulAllocations,
+      failedAllocations: [],
       results
     });
 

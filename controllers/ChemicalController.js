@@ -873,20 +873,46 @@ exports.getChemicalDistribution = asyncHandler(async (req, res) => {
 // Get simplified live chemicals for allocation form
 exports.getCentralLiveSimplified = asyncHandler(async (req, res) => {
   try {
-    const stock = await ChemicalLive.find({ labId: 'central-store' })
-      .select('_id displayName quantity unit expiryDate chemicalMasterId ')
-      .populate('chemicalMasterId', 'pricePerUnit'); // Get only pricePerUnit from master
+    // Only fetch chemicals with quantity > 0
+    const stock = await ChemicalLive.find({ 
+      labId: 'central-store',
+      quantity: { $gt: 0 } // Only return chemicals with available stock
+    })
+      .select('_id displayName quantity unit expiryDate chemicalMasterId')
+      .populate('chemicalMasterId', 'pricePerUnit batchId vendor'); // Get additional fields
+
+    console.log('🔍 Central available chemicals:', {
+      totalFound: stock.length,
+      chemicals: stock.map(s => ({
+        displayName: s.displayName,
+        quantity: s.quantity,
+        unit: s.unit,
+        chemicalMasterId: s.chemicalMasterId?._id
+      }))
+    });
 
     const simplified = stock.map(item => ({
       _id: item._id,
-      chemicalMasterId: item.chemicalMasterId,
+      chemicalMasterId: item.chemicalMasterId?._id, // Return the ID string, not the populated object
       chemicalName: item.displayName, // Frontend sees clean name
+      displayName: item.displayName, // Also include displayName for consistency
       quantity: item.quantity,
       unit: item.unit,
       expiryDate: item.expiryDate,
-      pricePerUnit: item.chemicalMasterId.pricePerUnit || null
-
+      pricePerUnit: item.chemicalMasterId?.pricePerUnit || null,
+      batchId: item.chemicalMasterId?.batchId || null,
+      vendor: item.chemicalMasterId?.vendor || null
     }));
+
+    console.log('📤 Returning simplified chemicals:', {
+      count: simplified.length,
+      sample: simplified.slice(0, 3).map(s => ({
+        name: s.chemicalName,
+        quantity: s.quantity,
+        unit: s.unit,
+        chemicalMasterId: s.chemicalMasterId
+      }))
+    });
 
     res.status(200).json(simplified);
   } catch (error) {

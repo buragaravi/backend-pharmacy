@@ -1056,3 +1056,110 @@ exports.getOutOfStockChemicals = asyncHandler(async (req, res) => {
   const outOfStock = await OutOfStockChemical.find().sort({ lastOutOfStock: -1 });
   res.status(200).json(outOfStock);
 });
+
+// Get all chemicals from ChemicalLive with quantities across labs (for request form suggestions)
+exports.getAllChemicalsWithLabQuantities = asyncHandler(async (req, res) => {
+  try {
+    const { search, labId, limit = 50, page = 1 } = req.query;
+    
+    // Build search query
+    let searchQuery = {};
+    
+    if (search) {
+      searchQuery.$or = [
+        { displayName: { $regex: search, $options: 'i' } },
+        { chemicalName: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    if (labId) {
+      searchQuery.labId = labId;
+    }
+    
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    // Get all chemicals with lab quantities
+    const chemicals = await ChemicalLive.find(searchQuery)
+      .select('displayName chemicalName quantity unit expiryDate labId chemicalMasterId originalQuantity')
+      .populate('chemicalMasterId', 'batchId vendor pricePerUnit department')
+      .sort({ displayName: 1, labId: 1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+    
+    // Group chemicals by displayName to show quantities across labs
+    const groupedChemicals = {};
+    
+    chemicals.forEach(chem => {
+      const key = chem.displayName;
+      
+      if (!groupedChemicals[key]) {
+        groupedChemicals[key] = {
+          _id: chem.chemicalMasterId?._id || chem._id,
+          displayName: chem.displayName,
+          chemicalName: chem.chemicalName,
+          unit: chem.unit,
+          expiryDate: chem.expiryDate,
+          totalQuantity: 0,
+          labs: [],
+          batchId: chem.chemicalMasterId?.batchId || null,
+          vendor: chem.chemicalMasterId?.vendor || null,
+          pricePerUnit: chem.chemicalMasterId?.pricePerUnit || null,
+          department: chem.chemicalMasterId?.department || null
+        };
+      }
+      
+      // Add lab quantity info
+      groupedChemicals[key].labs.push({
+        labId: chem.labId,
+        quantity: chem.quantity,
+        originalQuantity: chem.originalQuantity,
+        isAllocated: chem.isAllocated || false
+      });
+      
+      // Update total quantity
+      groupedChemicals[key].totalQuantity += chem.quantity;
+    });
+    
+    // Convert to array and sort by total quantity (descending)
+    const result = Object.values(groupedChemicals)
+      .sort((a, b) => b.totalQuantity - a.totalQuantity);
+    
+    // Get total count for pagination
+    const totalCount = await ChemicalLive.countDocuments(searchQuery);
+    const totalPages = Math.ceil(totalCount / parseInt(limit));
+    
+    console.log('🔍 Chemical search results:', {
+      search,
+      labId,
+      totalFound: result.length,
+      totalCount,
+      page: parseInt(page),
+      totalPages,
+      sample: result.slice(0, 3).map(c => ({
+        name: c.displayName,
+        totalQty: c.totalQuantity,
+        labs: c.labs.length
+      }))
+    });
+    
+    res.status(200).json({
+      chemicals: result,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages,
+        totalCount,
+        limit: parseInt(limit),
+        hasNext: parseInt(page) < totalPages,
+        hasPrev: parseInt(page) > 1
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error fetching chemicals with lab quantities:', error);
+    res.status(500).json({
+      message: 'Failed to fetch chemicals',
+      error: error.message
+    });
+  }
+});

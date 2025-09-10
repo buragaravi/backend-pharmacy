@@ -46,6 +46,37 @@ chemicalMasterSchema.pre('save', async function(next) {
   next();
 });
 
+// Add post-save middleware to ensure ChemicalLive entry exists
+chemicalMasterSchema.post('save', async function(doc) {
+  try {
+    const ChemicalLive = mongoose.model('ChemicalLive');
+    
+    // Check if ChemicalLive entry exists for central-store
+    const existingLive = await ChemicalLive.findOne({
+      chemicalMasterId: doc._id,
+      labId: 'central-store'
+    });
+
+    if (!existingLive) {
+      console.log(`⚠️ Missing ChemicalLive for master ${doc._id}, creating...`);
+      await ChemicalLive.create({
+        chemicalMasterId: doc._id,
+        chemicalName: doc.chemicalName,
+        displayName: doc.chemicalName.split(' - ')[0],
+        unit: doc.unit,
+        expiryDate: doc.expiryDate,
+        labId: 'central-store',
+        quantity: doc.quantity,
+        originalQuantity: doc.quantity,
+        isAllocated: false
+      });
+      console.log(`✅ Created missing ChemicalLive for master: ${doc._id}`);
+    }
+  } catch (error) {
+    console.error('Error ensuring ChemicalLive entry:', error);
+  }
+});
+
 // Add method to sync all related ChemicalLive documents
 chemicalMasterSchema.methods.syncChemicalLive = async function() {
   try {

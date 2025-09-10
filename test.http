@@ -1,0 +1,2 @@
+GET http://localhost:7000/api/chemicals/all-with-lab-quantities
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoiNjg5NDdhOWNmZWJlMjIxZTlmYjJiYjQ2Iiwicm9sZSI6ImZhY3VsdHkifSwiaWF0IjoxNzU3NTA2Mzc5LCJleHAiOjE3NTc1MDk5Nzl9.4hFK0-s_18-diOAr_PKyhJy9CLNyiU8pqiW30ueaBnU

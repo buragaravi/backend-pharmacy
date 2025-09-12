@@ -280,7 +280,7 @@ exports.login = async (req, res) => {
         labId: user.labId
       }
     };
-    jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' }, (err, token) => {
+    jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '10d' }, (err, token) => {
       if (err) throw err;
       res.json({ token, user: { userId: user.userId, role: user.role } });
     });

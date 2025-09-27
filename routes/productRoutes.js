@@ -54,4 +54,12 @@ router.delete('/:id',
   productController.deleteProduct
 );
 
+// Export product inventory
+router.get('/export', 
+    authenticate, 
+  authorizeRole(['admin', 'central_store_admin']), 
+  productController.exportProductInventory
+);
+
+
 module.exports = router;

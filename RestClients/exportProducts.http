@@ -1,0 +1,7 @@
+### Get inventory of only products that are currently in stock
+GET https://backend-pharmacy-5541.onrender.com/api/products/export
+
+###
+
+### Get a complete inventory report, including products with zero quantity
+GET https://backend-pharmacy-5541.onrender.com/api/products/export?reportType=complete

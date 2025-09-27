@@ -546,6 +546,97 @@ const getProductStats = asyncHandler(async (req, res) => {
   res.status(200).json({ total, chemical, equipment, glassware, others });
 });
 
+
+const exportProductInventory = asyncHandler(async (req, res) => {
+  try {
+    const { reportType } = req.query;
+    // 1. Fetch all live items from all categories in parallel using aggregation
+    const [chemicalStocks, equipmentStocks, glasswareStocks, otherStocks] = await Promise.all([
+      // Chemicals: Group by `displayName` which is the base name
+      ChemicalLive.aggregate([
+        { $group: { _id: { name: '$displayName', lab: '$labId' }, quantity: { $sum: '$quantity' } } },
+        { $project: { name: '$_id.name', labId: '$_id.lab', quantity: 1, _id: 0, category: 'chemical' } }
+      ]),
+      // Equipment: Each document is one item. Group by name and lab.
+      EquipmentLive.aggregate([
+        { $group: { _id: { name: '$name', lab: '$location' }, quantity: { $sum: 1 } } }, // Use 'location' for equipment
+        { $project: { name: '$_id.name', labId: '$_id.lab', quantity: 1, _id: 0, category: 'equipment' } }
+      ]),
+      // Glassware: Group by name and lab
+      GlasswareLive.aggregate([
+        { $group: { _id: { name: '$name', lab: '$labId' }, quantity: { $sum: '$quantity' } } },
+        { $project: { name: '$_id.name', labId: '$_id.lab', quantity: 1, _id: 0, category: 'glassware' } }
+      ]),
+      // Others: Group by name and lab
+      OtherProductLive.aggregate([
+        { $group: { _id: { name: '$name', lab: '$labId' }, quantity: { $sum: '$quantity' } } },
+        { $project: { name: '$_id.name', labId: '$_id.lab', quantity: 1, _id: 0, category: 'others' } }
+      ]),
+    ]);
+
+    // 2. Combine all stocks into a single array
+    const allStocks = [...chemicalStocks, ...equipmentStocks, ...glasswareStocks, ...otherStocks];
+
+    const inventoryReport = {};
+
+    // 3. If a 'complete' report is requested, first populate with ALL products
+    if (reportType === 'complete') {
+      const allProducts = await Product.find({}, 'name category').lean();
+      allProducts.forEach(product => {
+        // Use product.name as the key for easy lookup
+        inventoryReport[product.name] = {
+          productName: product.name,
+          category: product.category,
+          totalQuantity: 0,
+          labDetails: {}
+        };
+      });
+    }
+
+    // 4. Process the live stocks and update/create the report entries
+    allStocks.forEach(stock => {
+      if (!stock.name) return; // Skip items without a name
+      
+      const baseName = stock.name;
+      const labId = stock.labId || 'unknown';
+      const quantity = stock.quantity || 0;
+
+      // Initialize the product group if it doesn't exist
+      if (!inventoryReport[baseName]) {
+        inventoryReport[baseName] = {
+          productName: baseName,
+          category: stock.category,
+          totalQuantity: 0,
+          labDetails: {}
+        };
+      }
+
+      // Aggregate total quantity
+      inventoryReport[baseName].totalQuantity += quantity;
+
+      // Aggregate lab-wise quantity
+      if (inventoryReport[baseName].labDetails[labId]) {
+        inventoryReport[baseName].labDetails[labId] += quantity;
+      } else {
+        inventoryReport[baseName].labDetails[labId] = quantity;
+      }
+    });
+
+    // 5. Convert the report object to an array and sort it
+    const finalInventory = Object.values(inventoryReport).sort((a, b) => {
+      if (a.productName < b.productName) return -1;
+      if (a.productName > b.productName) return 1;
+      return 0;
+    });
+
+    res.status(200).json(finalInventory);
+
+  } catch (error) {
+    console.error('Error exporting product inventory:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = {
   getAllProducts,
   getProductsByCategory,
@@ -555,5 +646,6 @@ module.exports = {
   deleteProduct,
   searchProducts,
   getProductStats,
-  getProductInventoryDetails
+  getProductInventoryDetails,
+  exportProductInventory
 };

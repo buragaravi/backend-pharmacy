@@ -1060,101 +1060,64 @@ exports.getOutOfStockChemicals = asyncHandler(async (req, res) => {
 // Get all chemicals from ChemicalLive with quantities across labs (for request form suggestions)
 exports.getAllChemicalsWithLabQuantities = asyncHandler(async (req, res) => {
   try {
-    const { search, labId, limit = 50, page = 1 } = req.query;
-    
-    // Build search query
-    let searchQuery = {};
-    
-    if (search) {
-      searchQuery.$or = [
-        { displayName: { $regex: search, $options: 'i' } },
-        { chemicalName: { $regex: search, $options: 'i' } }
-      ];
-    }
-    
-    if (labId) {
-      searchQuery.labId = labId;
-    }
-    
-    // Calculate pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    
-    // Get all chemicals with lab quantities
-    const chemicals = await ChemicalLive.find(searchQuery)
-      .select('displayName chemicalName quantity unit expiryDate labId chemicalMasterId originalQuantity')
-      .populate('chemicalMasterId', 'batchId vendor pricePerUnit department')
-      .sort({ displayName: 1, labId: 1 })
-      .skip(skip)
-      .limit(parseInt(limit));
-    
-    // Group chemicals by displayName to show quantities across labs
-    const groupedChemicals = {};
-    
-    chemicals.forEach(chem => {
-      const key = chem.displayName;
-      
-      if (!groupedChemicals[key]) {
-        groupedChemicals[key] = {
-          _id: chem.chemicalMasterId?._id || chem._id,
-          displayName: chem.displayName,
-          chemicalName: chem.chemicalName,
-          unit: chem.unit,
-          expiryDate: chem.expiryDate,
+    // 1. Fetch all live chemicals and populate master data
+    const chemicals = await ChemicalLive.find({})
+      .populate('chemicalMasterId')
+      .lean(); // Use .lean() for better performance
+
+    // 2. Group by chemicalMasterId
+    const groupedByMaster = chemicals.reduce((acc, chem) => {
+      // Skip if master data is missing
+      if (!chem.chemicalMasterId) return acc;
+
+      const masterId = chem.chemicalMasterId._id.toString();
+
+      // Initialize group if it's the first time seeing this master chemical
+      if (!acc[masterId]) {
+        acc[masterId] = {
+          chemicalMasterId: masterId,
+          // Use the master name as the primary display name
+          displayName: chem.chemicalMasterId.chemicalName.split(' - ')[0],
+          // Also store the full master name
+          chemicalName: chem.chemicalMasterId.chemicalName,
+          unit: chem.chemicalMasterId.unit,
           totalQuantity: 0,
-          labs: [],
-          batchId: chem.chemicalMasterId?.batchId || null,
-          vendor: chem.chemicalMasterId?.vendor || null,
-          pricePerUnit: chem.chemicalMasterId?.pricePerUnit || null,
-          department: chem.chemicalMasterId?.department || null
+          labs: []
         };
       }
-      
-      // Add lab quantity info
-      groupedChemicals[key].labs.push({
+
+      // 3. Add batch-specific lab info
+      acc[masterId].labs.push({
         labId: chem.labId,
         quantity: chem.quantity,
-        originalQuantity: chem.originalQuantity,
-        isAllocated: chem.isAllocated || false
+        chemicalName: chem.chemicalName, // This is the batch-specific name
+        expiryDate: chem.expiryDate,
+        liveId: chem._id // ID of the ChemicalLive document
       });
-      
-      // Update total quantity
-      groupedChemicals[key].totalQuantity += chem.quantity;
-    });
-    
-    // Convert to array and sort by total quantity (descending)
-    const result = Object.values(groupedChemicals)
-      .sort((a, b) => b.totalQuantity - a.totalQuantity);
-    
-    // Get total count for pagination
-    const totalCount = await ChemicalLive.countDocuments(searchQuery);
-    const totalPages = Math.ceil(totalCount / parseInt(limit));
-    
-    console.log('🔍 Chemical search results:', {
-      search,
-      labId,
-      totalFound: result.length,
-      totalCount,
-      page: parseInt(page),
-      totalPages,
-      sample: result.slice(0, 3).map(c => ({
-        name: c.displayName,
-        totalQty: c.totalQuantity,
-        labs: c.labs.length
+
+      // 4. Aggregate total quantity
+      acc[masterId].totalQuantity += chem.quantity;
+
+      return acc;
+    }, {});
+
+    // 5. Convert to array and sort
+    const result = Object.entries(groupedByMaster)
+      .map(([masterId, data]) => ({
+        // Explicitly map properties and ensure chemicalMasterId is from the key
+        chemicalMasterId: masterId,
+        displayName: data.displayName,
+        chemicalName: data.chemicalName,
+        unit: data.unit,
+        totalQuantity: data.totalQuantity,
+        labs: data.labs,
       }))
-    });
-    
+      .sort((a, b) => a.displayName.localeCompare(b.displayName));
+
     res.status(200).json({
-      chemicals: result,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages,
-        totalCount,
-        limit: parseInt(limit),
-        hasNext: parseInt(page) < totalPages,
-        hasPrev: parseInt(page) > 1
-      }
+      chemicals: result
     });
-    
+
   } catch (error) {
     console.error('Error fetching chemicals with lab quantities:', error);
     res.status(500).json({
